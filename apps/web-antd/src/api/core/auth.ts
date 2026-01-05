@@ -22,11 +22,6 @@ export namespace AuthApi {
     expiresTime: number;
   }
 
-  /** 租户信息返回值 */
-  export interface TenantResult {
-    id: number;
-    name: string;
-  }
 
   /** 手机验证码获取接口参数 */
   export interface SmsCodeParams {
@@ -40,12 +35,13 @@ export namespace AuthApi {
     code: string;
   }
 
-  /** 注册接口参数 */
-  export interface RegisterParams {
-    username: string;
-    password: string;
-    captchaVerification: string;
-  }
+  // 管理员后台不允许注册，已禁用
+  // /** 注册接口参数 */
+  // export interface RegisterParams {
+  //   username: string;
+  //   password: string;
+  //   captchaVerification: string;
+  // }
 
   /** 重置密码接口参数 */
   export interface ResetPasswordParams {
@@ -98,19 +94,6 @@ export async function getAuthPermissionInfoApi() {
   );
 }
 
-/** 获取租户列表 */
-export async function getTenantSimpleList() {
-  return requestClient.get<AuthApi.TenantResult[]>(
-    `/system/tenant/simple-list`,
-  );
-}
-
-/** 使用租户域名，获得租户信息 */
-export async function getTenantByWebsite(website: string) {
-  return requestClient.get<AuthApi.TenantResult>(
-    `/system/tenant/get-by-website?website=${website}`,
-  );
-}
 
 /** 获取验证码 */
 export async function getCaptcha(data: any) {
@@ -132,10 +115,11 @@ export async function smsLogin(data: AuthApi.SmsLoginParams) {
   return requestClient.post('/system/auth/sms-login', data);
 }
 
-/** 注册 */
-export async function register(data: AuthApi.RegisterParams) {
-  return requestClient.post('/system/auth/register', data);
-}
+// 管理员后台不允许注册，已禁用
+// /** 注册 */
+// export async function register(data: AuthApi.RegisterParams) {
+//   return requestClient.post('/system/auth/register', data);
+// }
 
 /** 通过短信重置密码 */
 export async function smsResetPassword(data: AuthApi.ResetPasswordParams) {

@@ -16,7 +16,6 @@ import {
   getAuthPermissionInfoApi,
   loginApi,
   logoutApi,
-  register,
   smsLogin,
   socialLogin,
 } from '#/api';
@@ -37,7 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
    * @param onSuccess 登录成功后的回调函数
    */
   async function authLogin(
-    type: 'mobile' | 'register' | 'social' | 'username',
+    type: 'mobile' | 'social' | 'username',
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
   ) {
@@ -49,10 +48,6 @@ export const useAuthStore = defineStore('auth', () => {
       switch (type) {
         case 'mobile': {
           loginResult = await smsLogin(params as AuthApi.SmsLoginParams);
-          break;
-        }
-        case 'register': {
-          loginResult = await register(params as AuthApi.RegisterParams);
           break;
         }
         case 'social': {
