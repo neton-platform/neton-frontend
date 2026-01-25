@@ -24,7 +24,7 @@ const formData = ref<Partial<ClientApiApi.ClientApi>>({
         status: undefined,
         rateLimitPerMin: undefined,
         rateLimitPerDay: undefined,
-        isCustomPrice: undefined,
+        isCustomPrice: 0,
         customPrice: undefined,
         startTime: undefined,
         endTime: undefined,
@@ -102,7 +102,7 @@ const [Modal, modalApi] = useVbenModal({
 </script>
 
 <template>
-  <Modal :title="getTitle">
+  <Modal :title="getTitle" class="w-3/5">
     <Form
       ref="formRef"
       :model="formData"
@@ -116,8 +116,10 @@ const [Modal, modalApi] = useVbenModal({
             <Form.Item label="API ID" name="apiId">
               <Input v-model:value="formData.apiId" placeholder="请输入API ID" />
             </Form.Item>
-            <Form.Item label="是否启用" name="status">
-              <RadioGroup v-model:value="formData.status">
+           
+     
+            <Form.Item label="是否自定义价格" name="isCustomPrice">
+              <RadioGroup v-model:value="formData.isCustomPrice">
                   <Radio
                           v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
                           :key="dict.value"
@@ -127,25 +129,14 @@ const [Modal, modalApi] = useVbenModal({
                   </Radio>
               </RadioGroup>
             </Form.Item>
-            <Form.Item label="每分钟限流（覆盖 API 默认配置）" name="rateLimitPerMin">
-              <Input v-model:value="formData.rateLimitPerMin" placeholder="请输入每分钟限流（覆盖 API 默认配置）" />
+            <Form.Item v-if="formData.isCustomPrice == 1" label="自定义价格" name="customPrice">
+              <Input suffix="分" v-model:value="formData.customPrice" placeholder="请输入自定义价格" />
             </Form.Item>
-            <Form.Item label="每日配额（覆盖客户端默认配置）" name="rateLimitPerDay">
-              <Input v-model:value="formData.rateLimitPerDay" placeholder="请输入每日配额（覆盖客户端默认配置）" />
+                   <Form.Item label="每分钟限流" name="rateLimitPerMin">
+              <Input suffix="覆盖 API 默认配置"  v-model:value="formData.rateLimitPerMin" placeholder="请输入每分钟限流" />
             </Form.Item>
-            <Form.Item label="是否自定义价格" name="isCustomPrice">
-              <RadioGroup v-model:value="formData.isCustomPrice">
-                  <Radio
-                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'boolean')"
-                          :key="dict.value"
-                          :value="dict.value"
-                  >
-                    {{ dict.label }}
-                  </Radio>
-              </RadioGroup>
-            </Form.Item>
-            <Form.Item label="自定义价格（分，仅当 is_custom_price=1 时有效）" name="customPrice">
-              <Input v-model:value="formData.customPrice" placeholder="请输入自定义价格（分，仅当 is_custom_price=1 时有效）" />
+            <Form.Item label="每日配额" name="rateLimitPerDay">
+              <Input suffix="覆盖客户端默认配置" v-model:value="formData.rateLimitPerDay" placeholder="请输入每日配额（覆盖客户端默认配置）" />
             </Form.Item>
             <Form.Item label="授权开始时间" name="startTime">
               <DatePicker
@@ -160,6 +151,17 @@ const [Modal, modalApi] = useVbenModal({
                       valueFormat="x"
                       placeholder="选择授权结束时间（为空表示永久）"
               />
+            </Form.Item>
+             <Form.Item label="是否启用" name="status">
+              <RadioGroup v-model:value="formData.status">
+                  <Radio
+                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
+                          :key="dict.value"
+                          :value="dict.value"
+                  >
+                    {{ dict.label }}
+                  </Radio>
+              </RadioGroup>
             </Form.Item>
     </Form>
       </Modal>

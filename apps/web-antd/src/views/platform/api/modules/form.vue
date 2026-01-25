@@ -13,6 +13,7 @@ import { message, Tabs, Form, Input, Textarea, Select, RadioGroup, Radio, Checkb
 
 import { $t } from '#/locales';
 import { getApi, createApi, updateApi } from '#/api/platform/api';
+import { Option } from 'ant-design-vue/es/vc-select';
 
 const emit = defineEmits(['success']);
 
@@ -128,14 +129,22 @@ const [Modal, modalApi] = useVbenModal({
             <Form.Item label="API 路径" name="apiPath">
               <Input v-model:value="formData.apiPath" placeholder="请输入API 路径" />
             </Form.Item>
-            <Form.Item label="HTTP 方法" name="httpMethod">
-              <Input v-model:value="formData.httpMethod" placeholder="请输入HTTP 方法" />
+            <Form.Item label="HTTP 方法"   name="httpMethod">
+                <Select  v-model:value="formData.httpMethod">
+                    <Option      v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_REQUEST_METHOD)"
+                          :key="dict.value"
+                          :value="dict.value"
+                  >
+                    {{ dict.label }}
+                  </Option>
+                </Select>
+
             </Form.Item>
             <Form.Item label="API 分类" name="category">
               <Input v-model:value="formData.category" placeholder="请输入API 分类" />
             </Form.Item>
             <Form.Item label="API 描述" name="description">
-              <RichTextarea v-model="formData.description" height="500px" />
+              <Textarea v-model="formData.description" height="500px" ></Textarea>
             </Form.Item>
             <Form.Item label="状态" name="status">
               <RadioGroup v-model:value="formData.status">
@@ -148,17 +157,7 @@ const [Modal, modalApi] = useVbenModal({
                   </Radio>
               </RadioGroup>
             </Form.Item>
-            <Form.Item label="是否公开" name="isPublic">
-              <RadioGroup v-model:value="formData.isPublic">
-                  <Radio
-                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'boolean')"
-                          :key="dict.value"
-                          :value="dict.value"
-                  >
-                    {{ dict.label }}
-                  </Radio>
-              </RadioGroup>
-            </Form.Item>
+         
             <Form.Item label="每分钟限流" name="rateLimitPerMin">
               <Input v-model:value="formData.rateLimitPerMin" placeholder="请输入每分钟限流" />
             </Form.Item>

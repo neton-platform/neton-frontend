@@ -12,7 +12,7 @@ export namespace ClientApiApi {
             status?: number; // 是否启用
             rateLimitPerMin: number; // 每分钟限流（覆盖 API 默认配置）
             rateLimitPerDay: number; // 每日配额（覆盖客户端默认配置）
-            isCustomPrice?: boolean; // 是否自定义价格
+            isCustomPrice?: number; // 是否自定义价格
             customPrice: number; // 自定义价格（分，仅当 is_custom_price=1 时有效）
             startTime: string | Dayjs; // 授权开始时间
             endTime: string | Dayjs; // 授权结束时间（为空表示永久）

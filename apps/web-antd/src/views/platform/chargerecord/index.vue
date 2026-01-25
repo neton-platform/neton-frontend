@@ -216,7 +216,7 @@ onMounted(() => {
             ref="tableToolbarRef"
             v-model:hidden-search="hiddenSearchBar"
         >
-          <Button
+          <!-- <Button
               class="ml-2"
               :icon="h(Plus)"
               type="primary"
@@ -224,7 +224,7 @@ onMounted(() => {
               v-access:code="['platform:charge-record:create']"
           >
             {{ $t('ui.actionTitle.create', ['开放平台计费记录']) }}
-          </Button>
+          </Button> -->
           <Button
               :icon="h(Download)"
               type="primary"
@@ -235,7 +235,7 @@ onMounted(() => {
           >
             {{ $t('ui.actionTitle.export') }}
           </Button>
-          <Button
+          <!-- <Button
               :icon="h(Trash2)"
               type="primary"
               danger
@@ -245,7 +245,7 @@ onMounted(() => {
               v-access:code="['platform:charge-record:delete']"
           >
             批量删除
-          </Button>
+          </Button> -->
         </VbenVxeTableToolbar>
       </template>
       <VxeTable

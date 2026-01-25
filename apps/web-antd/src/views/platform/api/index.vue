@@ -202,7 +202,7 @@ onMounted(() => {
                            class="w-full"
                       >
                             <Select.Option
-                                v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'boolean')"
+                                v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
                                 :key="dict.value"
                                 :value="dict.value"
                             >
@@ -278,7 +278,11 @@ onMounted(() => {
                     <VxeColumn field="apiCode" title="API 编码" align="center" />
                     <VxeColumn field="apiName" title="API 名称" align="center" />
                     <VxeColumn field="apiPath" title="API 路径" align="center" />
-                    <VxeColumn field="httpMethod" title="HTTP 方法" align="center" />
+                    <VxeColumn field="httpMethod" title="HTTP 方法" align="center">
+                      <template #default="{row}">
+                          <dict-tag :type="DICT_TYPE.PLATFORM_REQUEST_METHOD" :value="row.httpMethod" />
+                      </template>
+                    </VxeColumn>
                     <VxeColumn field="category" title="API 分类" align="center" />
                     <VxeColumn field="description" title="API 描述" align="center" />
                     <VxeColumn field="status" title="状态" align="center">
@@ -286,11 +290,11 @@ onMounted(() => {
                         <dict-tag :type="DICT_TYPE.PLATFORM_CLIENT_STATUS" :value="row.status" />
                       </template>
                     </VxeColumn>
-                    <VxeColumn field="isPublic" title="是否公开" align="center">
+                    <!-- <VxeColumn field="isPublic" title="是否公开" align="center">
                       <template #default="{row}">
                         <dict-tag :type="DICT_TYPE.PLATFORM_BOOL" :value="row.isPublic" />
                       </template>
-                    </VxeColumn>
+                    </VxeColumn> -->
                     <VxeColumn field="rateLimitPerMin" title="每分钟限流" align="center" />
                     <VxeColumn field="chargeType" title="计费类型" align="center">
                       <template #default="{row}">

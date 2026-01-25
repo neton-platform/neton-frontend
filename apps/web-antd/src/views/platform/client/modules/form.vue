@@ -9,14 +9,30 @@ import { DICT_TYPE } from '@vben/constants';
 import { getDictOptions } from '@vben/hooks';
 import { Tinymce as RichTextarea } from '#/components/tinymce';
 import { ImageUpload, FileUpload } from "#/components/upload";
-import { message, Tabs, Form, Input, Textarea, Select, RadioGroup, Radio, CheckboxGroup, Checkbox, DatePicker, TreeSelect } from 'ant-design-vue';
+import {
+  Button,
+  DatePicker,
+  Form,
+  Input,
+  message,
+  Modal as AntModal,
+  Radio,
+  RadioGroup,
+  Select,
+  Tabs,
+  Textarea,
+  TreeSelect,
+  CheckboxGroup,
+  Checkbox,
+} from 'ant-design-vue';
 
 import { $t } from '#/locales';
-import { getClient, createClient, updateClient } from '#/api/platform/client';
+import { getClient, createClient, updateClient, generateAppId } from '#/api/platform/client';
 
 const emit = defineEmits(['success']);
 
 const formRef = ref();
+const isGeneratingClientId = ref(false);
 const formData = ref<Partial<ClientApi.Client>>({
         id: undefined,
         clientId: undefined,
@@ -97,6 +113,31 @@ function resetForm() {
   formRef.value?.resetFields();
 }
 
+async function generateClientId() {
+  if (isGeneratingClientId.value) {
+    return;
+  }
+  isGeneratingClientId.value = true;
+  try {
+    const clientId = await generateAppId();
+    formData.value.clientId = clientId;
+  } finally {
+    isGeneratingClientId.value = false;
+  }
+}
+
+function handleRegenerateClientId() {
+  AntModal.confirm({
+    title: '重新生成客户端唯一标识',
+    content: '重新生成将覆盖当前客户端唯一标识，是否继续？',
+    okText: '确认',
+    cancelText: '取消',
+    async onOk() {
+      await generateClientId();
+      message.success('客户端唯一标识已重新生成');
+    },
+  });
+}
 
 const [Modal, modalApi] = useVbenModal({
   async onConfirm() {
@@ -123,16 +164,19 @@ const [Modal, modalApi] = useVbenModal({
     }
     // 加载数据
     let data = modalApi.getData<ClientApi.Client>();
-    if (!data) {
+    if (!data || !data.id) {
+      resetForm();
+      if (data) {
+        formData.value = data;
+      }
+      await generateClientId();
       return;
     }
-    if (data.id) {
-      modalApi.lock();
-      try {
-        data = await getClient(data.id);
-      } finally {
-        modalApi.unlock();
-      }
+    modalApi.lock();
+    try {
+      data = await getClient(data.id);
+    } finally {
+      modalApi.unlock();
     }
     formData.value = data;
   },
@@ -141,7 +185,7 @@ const [Modal, modalApi] = useVbenModal({
 
 
 <template>
-  <Modal :title="getTitle">
+  <Modal :title="getTitle" class="w-3/5">
     <Form
       ref="formRef"
       :model="formData"
@@ -149,15 +193,72 @@ const [Modal, modalApi] = useVbenModal({
       :label-col="{ span: 8 }"
       :wrapper-col="{ span: 16 }"
     >
-            <Form.Item label="客户端唯一标识（公开）" name="clientId">
-              <Input v-model:value="formData.clientId" placeholder="请输入客户端唯一标识（公开）" />
+            <Form.Item label="客户端唯一标识"    name="clientId">
+              <div class="flex gap-2">
+                <Input :disabled="true" 
+                  v-model:value="formData.clientId"
+                  class="flex-1"
+                  placeholder="请输入客户端唯一标识"
+                />
+                <Button
+                  v-if="formData.id"
+                  :loading="isGeneratingClientId"
+                  @click="handleRegenerateClientId"
+                >
+                  重新生成
+                </Button>
+              </div>
             </Form.Item>
-            <Form.Item label="客户端密钥（AES-256 加密存储）" name="clientSecret">
+            <Form.Item label="客户端密钥" name="clientSecret">
               <Input v-model:value="formData.clientSecret" placeholder="请输入客户端密钥（AES-256 加密存储）" />
             </Form.Item>
             <Form.Item label="客户端名称" name="clientName">
               <Input v-model:value="formData.clientName" placeholder="请输入客户端名称" />
             </Form.Item>
+            <Form.Item label="客户端类型" name="clientType">
+              <Select v-model:value="formData.clientType" placeholder="请选择客户端类型">
+                  <Select.Option
+                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_CLIENT_TYPE, 'number')"
+                          :key="dict.value"
+                          :value="dict.value"
+                  >
+                    {{ dict.label }}
+                  </Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="每分钟频率限制" name="rateLimitPerMin">
+              <Input :suffix="`次/分钟`" v-model:value="formData.rateLimitPerMin" placeholder="请输入每分钟频率限制" />
+            </Form.Item>
+            <Form.Item label="每日调用配额" name="rateLimitPerDay">
+              <Input v-model:value="formData.rateLimitPerDay" placeholder="请输入每日调用配额" />
+            </Form.Item>
+            <Form.Item label="今日已用次数" name="usedCountToday">
+              <Input v-model:value="formData.usedCountToday" placeholder="请输入今日已用次数" />
+            </Form.Item>
+            <Form.Item label="累计调用次数" name="totalUsedCount">
+              <Input v-model:value="formData.totalUsedCount" placeholder="请输入累计调用次数" />
+            </Form.Item>
+            <Form.Item label="账户余额（分）" name="balance">
+              <Input v-model:value="formData.balance" suffix="分" placeholder="请输入账户余额（分）" />
+            </Form.Item>
+            <Form.Item label="累计消费金额（分）" name="totalCharged">
+              <Input v-model:value="formData.totalCharged" suffix="分" placeholder="请输入累计消费金额（分）" />
+            </Form.Item>
+            <Form.Item label="余额不足预警阈值" name="lowBalanceAlert">
+              <Input suffix="分" v-model:value="formData.lowBalanceAlert" placeholder="请输入余额不足预警阈值  " />
+            </Form.Item>
+              <Form.Item label="状态" name="status">
+              <RadioGroup v-model:value="formData.status">
+                  <Radio
+                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_CLIENT_STATUS, 'number')"
+                          :key="dict.value"
+                          :value="dict.value"
+                  >
+                    {{ dict.label }}
+                  </Radio>
+              </RadioGroup>
+            </Form.Item>
+            
             <Form.Item label="客户端编码（英文标识）" name="clientCode">
               <Input v-model:value="formData.clientCode" placeholder="请输入客户端编码（英文标识）" />
             </Form.Item>
@@ -165,7 +266,7 @@ const [Modal, modalApi] = useVbenModal({
               <ImageUpload v-model:value="formData.clientLogo" />
             </Form.Item>
             <Form.Item label="客户端描述" name="description">
-              <RichTextarea v-model="formData.description" height="500px" />
+              <Textarea  v-model="formData.description" height="500px" />
             </Form.Item>
             <Form.Item label="公司名称" name="companyName">
               <Input v-model:value="formData.companyName" placeholder="请输入公司名称" />
@@ -182,49 +283,7 @@ const [Modal, modalApi] = useVbenModal({
             <Form.Item label="联系人电话" name="contactPhone">
               <Input v-model:value="formData.contactPhone" placeholder="请输入联系人电话" />
             </Form.Item>
-            <Form.Item label="状态" name="status">
-              <RadioGroup v-model:value="formData.status">
-                  <Radio
-                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_CLIENT_STATUS, 'number')"
-                          :key="dict.value"
-                          :value="dict.value"
-                  >
-                    {{ dict.label }}
-                  </Radio>
-              </RadioGroup>
-            </Form.Item>
-            <Form.Item label="客户端类型" name="clientType">
-              <Select v-model:value="formData.clientType" placeholder="请选择客户端类型">
-                  <Select.Option
-                          v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_CLIENT_TYPE, 'number')"
-                          :key="dict.value"
-                          :value="dict.value"
-                  >
-                    {{ dict.label }}
-                  </Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="每分钟频率限制（次/分钟）" name="rateLimitPerMin">
-              <Input v-model:value="formData.rateLimitPerMin" placeholder="请输入每分钟频率限制（次/分钟）" />
-            </Form.Item>
-            <Form.Item label="每日调用配额" name="rateLimitPerDay">
-              <Input v-model:value="formData.rateLimitPerDay" placeholder="请输入每日调用配额" />
-            </Form.Item>
-            <Form.Item label="今日已用次数" name="usedCountToday">
-              <Input v-model:value="formData.usedCountToday" placeholder="请输入今日已用次数" />
-            </Form.Item>
-            <Form.Item label="累计调用次数" name="totalUsedCount">
-              <Input v-model:value="formData.totalUsedCount" placeholder="请输入累计调用次数" />
-            </Form.Item>
-            <Form.Item label="账户余额（分）" name="balance">
-              <Input v-model:value="formData.balance" placeholder="请输入账户余额（分）" />
-            </Form.Item>
-            <Form.Item label="累计消费金额（分）" name="totalCharged">
-              <Input v-model:value="formData.totalCharged" placeholder="请输入累计消费金额（分）" />
-            </Form.Item>
-            <Form.Item label="余额不足预警阈值（分，默认100元）" name="lowBalanceAlert">
-              <Input v-model:value="formData.lowBalanceAlert" placeholder="请输入余额不足预警阈值（分，默认100元）" />
-            </Form.Item>
+          
             <Form.Item label="允许的IP白名单" name="allowedIps">
               <Input v-model:value="formData.allowedIps" placeholder="请输入允许的IP白名单" />
             </Form.Item>

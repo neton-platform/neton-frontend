@@ -173,8 +173,17 @@ const IOT_DICT = {
   IOT_VALIDATE_TYPE: 'iot_validate_type', // IOT 数据校验级别
 } as const;
 
+const PLATFORM_DICT = {
+  PLATFORM_CLIENT_STATUS: 'platform_client_status',
+  PLATFORM_CHARGE_TYPE: 'platform_charge_type',
+  PLATFORM_BOOL: 'platform_bool',
+  PLATFORM_CLIENT_TYPE: 'platform_client_type',
+  PLATFORM_REQUEST_METHOD: 'platform_request_method',
+};
+
 /** 字典类型枚举 - 统一导出 */
 const DICT_TYPE = {
+  ...PLATFORM_DICT,
   ...AI_DICT,
   ...BPM_DICT,
   ...CRM_DICT,

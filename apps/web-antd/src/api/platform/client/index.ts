@@ -68,3 +68,8 @@ export function deleteClientList(ids: number[]) {
 export function exportClient(params: any) {
   return requestClient.download('/platform/client/export-excel', { params });
 }
+
+/** 生成客户端唯一标识 */
+export function generateAppId() {
+  return requestClient.get<string>('/platform/client/generateAppId');
+}
