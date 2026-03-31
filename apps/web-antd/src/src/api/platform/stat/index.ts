@@ -2,7 +2,7 @@ import type { PageParam, PageResult } from '@vben/request';
 import type { Dayjs } from 'dayjs';
 
 import { requestClient } from '#/api/request';
-
+export const getClientApiByClientIdAndApiId = () => {};
 export namespace StatApi {
     /** 开放平台统计信息 */
   export interface Stat {
