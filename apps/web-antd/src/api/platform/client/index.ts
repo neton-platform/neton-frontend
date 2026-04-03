@@ -8,6 +8,7 @@ export namespace ClientApi {
   /** 开放平台客户端信息 */
   export interface Client {
     id: number; // 客户端ID
+    createTime?: Dayjs | string; // 创建时间
     memberUserId?: number; // 关联会员用户ID
     clientId: string; // 客户端唯一标识（公开）
     clientSecret?: string; // 客户端密钥（AES-256 加密存储）
@@ -34,6 +35,13 @@ export namespace ClientApi {
     expiredTime: Dayjs | string; // 过期时间（为空表示永久有效）
     lastCallTime: Dayjs | string; // 最后调用时间
   }
+
+  /** 开放平台客户端下拉项 */
+  export interface ClientListItem {
+    id: number;
+    clientId: string;
+    clientName?: string;
+  }
 }
 
 /** 查询开放平台客户端分页 */
@@ -47,6 +55,11 @@ export function getClientPage(params: PageParam) {
 /** 查询开放平台客户端详情 */
 export function getClient(id: number) {
   return requestClient.get<ClientApi.Client>(`/platform/client/get?id=${id}`);
+}
+
+/** 查询开放平台客户端列表 */
+export function getClientList() {
+  return requestClient.get<ClientApi.ClientListItem[]>('/platform/client/list');
 }
 
 /** 新增开放平台客户端 */
@@ -79,4 +92,9 @@ export function exportClient(params: any) {
 /** 生成客户端唯一标识 */
 export function generateAppId() {
   return requestClient.get<string>('/platform/client/generateAppId');
+}
+
+/** 生成客户端密钥 */
+export function generateAppSecret() {
+  return requestClient.get<string>('/platform/client/generateAppSecret');
 }

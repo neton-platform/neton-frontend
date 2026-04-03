@@ -6,6 +6,7 @@ export namespace ApiApi {
   /** 开放平台API定义信息 */
   export interface Api {
     id: number; // API ID
+    createTime?: string; // 创建时间
     apiCode?: string; // API 编码
     apiName?: string; // API 名称
     apiPath?: string; // API 路径
@@ -75,4 +76,9 @@ export function getApiList(params?: { clientId?: number | string }) {
   return requestClient.get<ApiApi.ApiListItem[]>('/platform/api/list', {
     params,
   });
+}
+
+/** 查询开放平台API下拉列表 */
+export function getApiSimpleList() {
+  return requestClient.get<ApiApi.ApiListItem[]>('/platform/api/simple-list');
 }

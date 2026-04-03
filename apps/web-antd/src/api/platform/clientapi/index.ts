@@ -7,16 +7,27 @@ import { requestClient } from '#/api/request';
 export namespace ClientApiApi {
   /** 客户端-API授权关系表（含自定义定价）信息 */
   export interface ClientApi {
-    id: number; // 关系ID
-    clientId?: string; // 客户端
-    apiId?: number; // API ID
+    id?: number; // 关系ID
+    clientId?: number | string; // 客户端
+    apiId?: number | string; // API ID
     status?: number; // 是否启用
-    rateLimitPerMin: number; // 每分钟限流（覆盖 API 默认配置）
-    rateLimitPerDay: number; // 每日配额（覆盖客户端默认配置）
+    rateLimitPerMin?: number; // 每分钟限流（覆盖 API 默认配置）
+    rateLimitPerDay?: number; // 每日配额（覆盖客户端默认配置）
     isCustomPrice?: number; // 是否自定义价格
-    customPrice: number; // 自定义价格（分，仅当 is_custom_price=1 时有效）
-    startTime: Dayjs | string; // 授权开始时间
-    endTime: Dayjs | string; // 授权结束时间（为空表示永久）
+    customPrice?: number; // 自定义价格（分，仅当 is_custom_price=1 时有效）
+    startTime?: Dayjs | string; // 授权开始时间
+    endTime?: Dayjs | string; // 授权结束时间（为空表示永久）
+    createTime?: Dayjs | string; // 创建时间
+  }
+
+  export interface ClientApiQuery {
+    apiId: number | string;
+    clientId: number | string;
+  }
+
+  export interface ClientApiAssociationReq {
+    apiIdList: number[];
+    clientId: number | string;
   }
 }
 
@@ -64,8 +75,19 @@ export function exportClientApi(params: any) {
   });
 }
 
-export const getClientApiByClientIdAndApiId = () => {};
-export const createClientApiAssociation = (
-  clientId: string,
-  apiIdList: number[],
-) => {};
+/** 根据客户端和 API 查询授权关系 */
+export function getClientApiByClientIdAndApiId(
+  params: ClientApiApi.ClientApiQuery,
+) {
+  return requestClient.get<ClientApiApi.ClientApi>(
+    '/platform/client-api/byClientIdAndApiId',
+    { params },
+  );
+}
+
+/** 创建客户端与 API 的关联关系 */
+export function createClientApiAssociation(
+  data: ClientApiApi.ClientApiAssociationReq,
+) {
+  return requestClient.post('/platform/client-api/createAssociation', data);
+}

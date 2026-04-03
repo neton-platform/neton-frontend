@@ -1,149 +1,104 @@
 <script lang="ts" setup>
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+import type { ApiApi } from '#/api/platform/api';
+import type { ClientApi as ClientOptionsApi } from '#/api/platform/client';
 import type { ChargeRecordApi } from '#/api/platform/chargerecord';
 
-import { h, onMounted, reactive, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
 import { DICT_TYPE } from '@vben/constants';
-import { getDictOptions } from '@vben/hooks';
-import { Download } from '@vben/icons';
-import { useTableToolbar, VbenVxeTableToolbar } from '@vben/plugins/vxe-table';
-import {
-  cloneDeep,
-  downloadFileFromBlobPart,
-  formatDateTime,
-} from '@vben/utils';
+import { downloadFileFromBlobPart } from '@vben/utils';
 
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  message,
-  Pagination,
-  RangePicker,
-  Select,
-} from 'ant-design-vue';
-
-import { VxeColumn, VxeTable } from '#/adapter/vxe-table';
-import {
-  deleteChargeRecord,
-  deleteChargeRecordList,
-  exportChargeRecord,
-  getChargeRecordPage,
-} from '#/api/platform/chargerecord';
+import { ACTION_ICON, TableAction, useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getApiSimpleList } from '#/api/platform/api';
+import { getClientList } from '#/api/platform/client';
+import { exportChargeRecord, getChargeRecordPage } from '#/api/platform/chargerecord';
 import { DictTag } from '#/components/dict-tag';
 import { $t } from '#/locales';
-import { getRangePickerDefaultProps } from '#/utils/rangePickerProps';
 
-import ChargeRecordForm from './modules/form.vue';
+import { useGridColumns, useGridFormSchema } from './data';
+import Detail from './modules/detail.vue';
 
-const loading = ref(true); // 列表的加载中
-const list = ref<ChargeRecordApi.ChargeRecord[]>([]); // 列表的数据
+const exportLoading = ref(false);
+const clientNameMap = ref<Record<string, string>>({});
+const apiNameMap = ref<Record<string, string>>({});
+const clientOptions = ref<Array<{ label: string; value: string }>>([]);
+const apiOptions = ref<Array<{ label: string; value: number }>>([]);
 
-const total = ref(0); // 列表的总页数
-const queryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  clientId: undefined,
-  apiId: undefined,
-  traceId: undefined,
-  chargeStatus: undefined,
-  createTime: undefined,
-});
-const queryFormRef = ref(); // 搜索的表单
-const exportLoading = ref(false); // 导出的加载中
-
-/** 查询列表 */
-async function getList() {
-  loading.value = true;
-  try {
-    const params = cloneDeep(queryParams) as any;
-    if (params.createTime && Array.isArray(params.createTime)) {
-      params.createTime = (params.createTime as string[]).join(',');
-    }
-    const data = await getChargeRecordPage(params);
-    list.value = data.list;
-    total.value = data.total;
-  } finally {
-    loading.value = false;
-  }
-}
-
-/** 搜索按钮操作 */
-function handleQuery() {
-  queryParams.pageNo = 1;
-  getList();
-}
-
-/** 重置按钮操作 */
-function resetQuery() {
-  queryFormRef.value.resetFields();
-  handleQuery();
-}
-
-const [FormModal, formModalApi] = useVbenModal({
-  connectedComponent: ChargeRecordForm,
+const [DetailModal, detailModalApi] = useVbenModal({
+  connectedComponent: Detail,
   destroyOnClose: true,
 });
 
-/** 创建开放平台计费记录 */
-function handleCreate() {
-  formModalApi.setData(null).open();
+function handleDetail(row: ChargeRecordApi.ChargeRecord) {
+  detailModalApi.setData(row).open();
 }
 
-/** 编辑开放平台计费记录 */
-function handleEdit(row: ChargeRecordApi.ChargeRecord) {
-  formModalApi.setData(row).open();
+function buildClientDisplayName(client: ClientOptionsApi.ClientListItem) {
+  return client.clientName || client.clientId;
 }
 
-/** 删除开放平台计费记录 */
-async function handleDelete(row: ChargeRecordApi.ChargeRecord) {
-  const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting', [row.id]),
-    duration: 0,
-  });
-  try {
-    await deleteChargeRecord(row.id!);
-    message.success($t('ui.actionMessage.deleteSuccess', [row.id]));
-    await getList();
-  } finally {
-    hideLoading();
+function buildApiDisplayName(api: ApiApi.ApiListItem) {
+  return api.apiName || api.apiCode || String(api.id);
+}
+
+async function loadNameMaps() {
+  const [clients, apis] = await Promise.all([
+    getClientList(),
+    getApiSimpleList(),
+  ]);
+
+  clientOptions.value = clients.map((item) => ({
+    label: buildClientDisplayName(item),
+    value: item.clientId,
+  }));
+
+  apiOptions.value = apis.map((item) => ({
+    label: buildApiDisplayName(item),
+    value: item.id,
+  }));
+
+  clientNameMap.value = clients.reduce<Record<string, string>>((acc, item) => {
+    acc[String(item.clientId)] = buildClientDisplayName(item);
+    return acc;
+  }, {});
+
+  apiNameMap.value = apis.reduce<Record<string, string>>((acc, item) => {
+    acc[String(item.id)] = buildApiDisplayName(item);
+    return acc;
+  }, {});
+}
+
+function getClientDisplayName(clientId?: number | string) {
+  if (clientId === undefined || clientId === null || clientId === '') {
+    return '-';
   }
+  return clientNameMap.value[String(clientId)] || String(clientId);
 }
 
-/** 批量删除开放平台计费记录 */
-async function handleDeleteBatch() {
-  const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting'),
-    duration: 0,
-  });
-  try {
-    await deleteChargeRecordList(checkedIds.value);
-    checkedIds.value = [];
-    message.success($t('ui.actionMessage.deleteSuccess'));
-    await getList();
-  } finally {
-    hideLoading();
+function getApiDisplayName(apiId?: number | string) {
+  if (apiId === undefined || apiId === null || apiId === '') {
+    return '-';
   }
-}
-
-const checkedIds = ref<number[]>([]);
-function handleRowCheckboxChange({
-  records,
-}: {
-  records: ChargeRecordApi.ChargeRecord[];
-}) {
-  checkedIds.value = records.map((item) => item.id!);
+  return apiNameMap.value[String(apiId)] || String(apiId);
 }
 
 /** 导出表格 */
 async function handleExport() {
+  exportLoading.value = true;
   try {
-    exportLoading.value = true;
-    const data = await exportChargeRecord(queryParams);
+    const values = await gridApi.formApi.getValues();
+    const params = {
+      ...values,
+      createTime:
+        values.createTime && Array.isArray(values.createTime)
+          ? values.createTime.join(',')
+          : values.createTime,
+    };
+    const data = await exportChargeRecord(params);
     downloadFileFromBlobPart({
-      fileName: '开放平台计费记录.xls',
+      fileName: '平台计费记录.xls',
       source: data,
     });
   } finally {
@@ -151,218 +106,100 @@ async function handleExport() {
   }
 }
 
-/** 初始化 */
-const { hiddenSearchBar, tableToolbarRef, tableRef } = useTableToolbar();
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions: {
+    schema: useGridFormSchema(clientOptions, apiOptions),
+  },
+  gridOptions: {
+    columns: useGridColumns(),
+    height: 'auto',
+    keepSource: true,
+    proxyConfig: {
+      ajax: {
+        query: async ({ page }, formValues) => {
+          return await getChargeRecordPage({
+            pageNo: page.currentPage,
+            pageSize: page.pageSize,
+            ...formValues,
+            createTime:
+              formValues.createTime && Array.isArray(formValues.createTime)
+                ? formValues.createTime.join(',')
+                : formValues.createTime,
+          });
+        },
+      },
+    },
+    rowConfig: {
+      keyField: 'id',
+      isHover: true,
+    },
+    toolbarConfig: {
+      refresh: true,
+      search: true,
+    },
+  } as VxeTableGridOptions<ChargeRecordApi.ChargeRecord>,
+});
+
 onMounted(() => {
-  getList();
+  void loadNameMaps();
 });
 </script>
 
 <template>
   <Page auto-content-height>
-    <FormModal @success="getList" />
+    <DetailModal />
 
-    <Card v-if="!hiddenSearchBar" class="mb-4">
-      <!-- 搜索工作栏 -->
-      <Form :model="queryParams" ref="queryFormRef" layout="inline">
-        <Form.Item label="客户端ID" name="clientId">
-          <Input
-            v-model:value="queryParams.clientId"
-            placeholder="请输入客户端ID"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="API ID" name="apiId">
-          <Input
-            v-model:value="queryParams.apiId"
-            placeholder="请输入API ID"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="请求跟踪ID（关联日志）" name="traceId">
-          <Input
-            v-model:value="queryParams.traceId"
-            placeholder="请输入请求跟踪ID（关联日志）"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="是否扣费成功" name="chargeStatus">
-          <Select
-            v-model:value="queryParams.chargeStatus"
-            placeholder="请选择是否扣费成功"
-            allow-clear
-            class="w-full"
-          >
-            <Select.Option
-              v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
-              :key="dict.value"
-              :value="dict.value"
-            >
-              {{ dict.label }}
-            </Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item label="创建时间" name="createTime">
-          <RangePicker
-            v-model:value="queryParams.createTime"
-            v-bind="getRangePickerDefaultProps()"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item>
-          <Button class="ml-2" @click="resetQuery"> 重置 </Button>
-          <Button class="ml-2" @click="handleQuery" type="primary">
-            搜索
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
-
-    <!-- 列表 -->
-    <Card title="开放平台计费记录">
-      <template #extra>
-        <VbenVxeTableToolbar
-          ref="tableToolbarRef"
-          v-model:hidden-search="hiddenSearchBar"
-        >
-          <!-- <Button
-              class="ml-2"
-              :icon="h(Plus)"
-              type="primary"
-              @click="handleCreate"
-              v-access:code="['platform:charge-record:create']"
-          >
-            {{ $t('ui.actionTitle.create', ['开放平台计费记录']) }}
-          </Button> -->
-          <Button
-            :icon="h(Download)"
-            type="primary"
-            class="ml-2"
-            :loading="exportLoading"
-            @click="handleExport"
-            v-access:code="['platform:charge-record:export']"
-          >
-            {{ $t('ui.actionTitle.export') }}
-          </Button>
-          <!-- <Button
-              :icon="h(Trash2)"
-              type="primary"
-              danger
-              class="ml-2"
-              :disabled="isEmpty(checkedIds)"
-              @click="handleDeleteBatch"
-              v-access:code="['platform:charge-record:delete']"
-          >
-            批量删除
-          </Button> -->
-        </VbenVxeTableToolbar>
+    <Grid table-title="平台计费记录">
+      <template #toolbar-tools>
+        <TableAction
+          :actions="[
+            {
+              label: $t('ui.actionTitle.export'),
+              type: 'primary',
+              icon: ACTION_ICON.DOWNLOAD,
+              auth: ['platform:charge-record:export'],
+              onClick: handleExport,
+            },
+          ]"
+        />
       </template>
-      <VxeTable
-        ref="tableRef"
-        :data="list"
-        show-overflow
-        :loading="loading"
-        @checkbox-all="handleRowCheckboxChange"
-        @checkbox-change="handleRowCheckboxChange"
-      >
-        <VxeColumn type="checkbox" width="40" />
-        <VxeColumn field="id" title="计费ID" align="center" />
-        <VxeColumn field="clientId" title="客户端ID" align="center" />
-        <VxeColumn field="apiId" title="API ID" align="center" />
-        <VxeColumn
-          field="traceId"
-          title="请求跟踪ID（关联日志）"
-          align="center"
+
+      <template #chargeType="{ row }">
+        <DictTag
+          :type="DICT_TYPE.PLATFORM_CHARGE_TYPE"
+          :value="row.chargeType"
         />
-        <VxeColumn field="chargeType" title="计费类型" align="center">
-          <template #default="{ row }">
-            <DictTag
-              :type="DICT_TYPE.PLATFORM_CHARGE_TYPE"
-              :value="row.chargeType"
-            />
-          </template>
-        </VxeColumn>
-        <VxeColumn field="price" title="本次计费金额（分）" align="center" />
-        <VxeColumn
-          field="isCustomPrice"
-          title="是否使用自定义价格"
-          align="center"
-        >
-          <template #default="{ row }">
-            <DictTag
-              :type="DICT_TYPE.PLATFORM_BOOL"
-              :value="row.isCustomPrice"
-            />
-          </template>
-        </VxeColumn>
-        <VxeColumn
-          field="balanceBefore"
-          title="扣费前余额（分）"
-          align="center"
+      </template>
+
+      <template #isCustomPrice="{ row }">
+        <DictTag :type="DICT_TYPE.PLATFORM_BOOL" :value="row.isCustomPrice" />
+      </template>
+
+      <template #chargeStatus="{ row }">
+        <DictTag :type="DICT_TYPE.PLATFORM_BOOL" :value="row.chargeStatus" />
+      </template>
+
+      <template #clientName="{ row }">
+        {{ getClientDisplayName(row.clientId) }}
+      </template>
+
+      <template #apiName="{ row }">
+        {{ getApiDisplayName(row.apiId) }}
+      </template>
+
+      <template #actions="{ row }">
+        <TableAction
+          :actions="[
+            {
+              label: '详情',
+              type: 'link',
+              icon: ACTION_ICON.VIEW,
+              auth: ['platform:charge-record:query'],
+              onClick: handleDetail.bind(null, row),
+            },
+          ]"
         />
-        <VxeColumn
-          field="balanceAfter"
-          title="扣费后余额（分）"
-          align="center"
-        />
-        <VxeColumn field="chargeStatus" title="是否扣费成功" align="center">
-          <template #default="{ row }">
-            <DictTag
-              :type="DICT_TYPE.PLATFORM_BOOL"
-              :value="row.chargeStatus"
-            />
-          </template>
-        </VxeColumn>
-        <VxeColumn field="failureReason" title="失败原因" align="center" />
-        <VxeColumn field="chargeTime" title="扣费时间" align="center">
-          <template #default="{ row }">
-            {{ formatDateTime(row.chargeTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn field="createTime" title="创建时间" align="center">
-          <template #default="{ row }">
-            {{ formatDateTime(row.createTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn field="operation" title="操作" align="center">
-          <template #default="{ row }">
-            <Button
-              size="small"
-              type="link"
-              @click="handleEdit(row)"
-              v-access:code="['platform:charge-record:update']"
-            >
-              {{ $t('ui.actionTitle.edit') }}
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              danger
-              class="ml-2"
-              @click="handleDelete(row)"
-              v-access:code="['platform:charge-record:delete']"
-            >
-              {{ $t('ui.actionTitle.delete') }}
-            </Button>
-          </template>
-        </VxeColumn>
-      </VxeTable>
-      <!-- 分页 -->
-      <div class="mt-2 flex justify-end">
-        <Pagination
-          :total="total"
-          v-model:current="queryParams.pageNo"
-          v-model:page-size="queryParams.pageSize"
-          show-size-changer
-          @change="getList"
-        />
-      </div>
-    </Card>
+      </template>
+    </Grid>
   </Page>
 </template>
