@@ -1,29 +1,33 @@
-import type { PageParam, PageResult } from '@vben/request';
 import type { Dayjs } from 'dayjs';
 
+import type { PageParam, PageResult } from '@vben/request';
+
 import { requestClient } from '#/api/request';
+
 export const getClientApiByClientIdAndApiId = () => {};
 export namespace StatApi {
-    /** 开放平台统计信息 */
+  /** 开放平台统计信息 */
   export interface Stat {
-            id: number; // 统计ID
-            clientId?: string; // 客户端ID
-            apiId: number; // API ID（为空表示客户端维度统计）
-            statDate?: string | Dayjs; // 统计日期
-            totalCount?: number; // 总调用次数
-            successCount?: number; // 成功次数
-            failedCount?: number; // 失败次数
-            avgDurationMs?: number; // 平均耗时（毫秒）
-            maxDurationMs?: number; // 最大耗时（毫秒）
-            totalCharge?: number; // 总计费金额（分）
-            freeCount?: number; // 免费调用次数
-            chargedCount?: number; // 计费调用次数
-      }
+    id: number; // 统计ID
+    clientId?: string; // 客户端ID
+    apiId: number; // API ID（为空表示客户端维度统计）
+    statDate?: Dayjs | string; // 统计日期
+    totalCount?: number; // 总调用次数
+    successCount?: number; // 成功次数
+    failedCount?: number; // 失败次数
+    avgDurationMs?: number; // 平均耗时（毫秒）
+    maxDurationMs?: number; // 最大耗时（毫秒）
+    totalCharge?: number; // 总计费金额（分）
+    freeCount?: number; // 免费调用次数
+    chargedCount?: number; // 计费调用次数
+  }
 }
 
 /** 查询开放平台统计分页 */
 export function getStatPage(params: PageParam) {
-  return requestClient.get<PageResult<StatApi.Stat>>('/platform/stat/page', { params });
+  return requestClient.get<PageResult<StatApi.Stat>>('/platform/stat/page', {
+    params,
+  });
 }
 
 /** 查询开放平台统计详情 */
@@ -48,7 +52,9 @@ export function deleteStat(id: number) {
 
 /** 批量删除开放平台统计 */
 export function deleteStatList(ids: number[]) {
-  return requestClient.delete(`/platform/stat/delete-list?ids=${ids.join(',')}`)
+  return requestClient.delete(
+    `/platform/stat/delete-list?ids=${ids.join(',')}`,
+  );
 }
 
 /** 导出开放平台统计 */

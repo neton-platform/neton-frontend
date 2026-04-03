@@ -65,4 +65,7 @@ export function exportClientApi(params: any) {
 }
 
 export const getClientApiByClientIdAndApiId = () => {};
-export const createClientApiAssociation = (clientId: string, apiIdList: number[]) => {};
+export const createClientApiAssociation = (
+  clientId: string,
+  apiIdList: number[],
+) => {};
