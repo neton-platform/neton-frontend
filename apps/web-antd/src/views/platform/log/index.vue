@@ -1,137 +1,40 @@
 <script lang="ts" setup>
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+import type { ApiApi } from '#/api/platform/api';
+import type { ClientApi as ClientOptionsApi } from '#/api/platform/client';
 import type { LogApi } from '#/api/platform/log';
 
-import { h, onMounted, reactive, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Download, Trash2 } from '@vben/icons';
-import { useTableToolbar, VbenVxeTableToolbar } from '@vben/plugins/vxe-table';
-import {
-  cloneDeep,
-  downloadFileFromBlobPart,
-  formatDateTime,
-  isEmpty,
-} from '@vben/utils';
+import { downloadFileFromBlobPart } from '@vben/utils';
 
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  message,
-  Pagination,
-  Select,
-} from 'ant-design-vue';
-
-import { VxeColumn, VxeTable } from '#/adapter/vxe-table';
-import {
-  deleteLog,
-  deleteLogList,
-  exportLog,
-  getLogPage,
-} from '#/api/platform/log';
+import { ACTION_ICON, TableAction, useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getApiSimpleList } from '#/api/platform/api';
+import { getClientList } from '#/api/platform/client';
+import { exportLog, getLogPage } from '#/api/platform/log';
 import { $t } from '#/locales';
 
-import LogForm from './modules/form.vue';
+import { useGridColumns, useGridFormSchema } from './data';
+import Detail from './modules/detail.vue';
 
-const loading = ref(true); // 列表的加载中
-const list = ref<LogApi.Log[]>([]); // 列表的数据
+const exportLoading = ref(false);
+const clientNameMap = ref<Record<string, string>>({});
+const apiNameMap = ref<Record<string, string>>({});
+const clientOptions = ref<Array<{ label: string; value: string }>>([]);
+const apiOptions = ref<Array<{ label: string; value: number }>>([]);
 
-const total = ref(0); // 列表的总页数
-const queryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  clientId: undefined,
-  apiId: undefined,
-  apiCode: undefined,
-  success: undefined,
-});
-const queryFormRef = ref(); // 搜索的表单
-const exportLoading = ref(false); // 导出的加载中
-
-/** 查询列表 */
-async function getList() {
-  loading.value = true;
-  try {
-    const params = cloneDeep(queryParams) as any;
-    const data = await getLogPage(params);
-    list.value = data.list;
-    total.value = data.total;
-  } finally {
-    loading.value = false;
-  }
-}
-
-/** 搜索按钮操作 */
-function handleQuery() {
-  queryParams.pageNo = 1;
-  getList();
-}
-
-/** 重置按钮操作 */
-function resetQuery() {
-  queryFormRef.value.resetFields();
-  handleQuery();
-}
-
-const [FormModal, formModalApi] = useVbenModal({
-  connectedComponent: LogForm,
+const [DetailModal, detailModalApi] = useVbenModal({
+  connectedComponent: Detail,
   destroyOnClose: true,
 });
 
-/** 创建开放平台调用日志 */
-function handleCreate() {
-  formModalApi.setData(null).open();
-}
-
-/** 编辑开放平台调用日志 */
-function handleEdit(row: LogApi.Log) {
-  formModalApi.setData(row).open();
-}
-
-/** 删除开放平台调用日志 */
-async function handleDelete(row: LogApi.Log) {
-  const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting', [row.id]),
-    duration: 0,
-  });
-  try {
-    await deleteLog(row.id!);
-    message.success($t('ui.actionMessage.deleteSuccess', [row.id]));
-    await getList();
-  } finally {
-    hideLoading();
-  }
-}
-
-/** 批量删除开放平台调用日志 */
-async function handleDeleteBatch() {
-  const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting'),
-    duration: 0,
-  });
-  try {
-    await deleteLogList(checkedIds.value);
-    checkedIds.value = [];
-    message.success($t('ui.actionMessage.deleteSuccess'));
-    await getList();
-  } finally {
-    hideLoading();
-  }
-}
-
-const checkedIds = ref<number[]>([]);
-function handleRowCheckboxChange({ records }: { records: LogApi.Log[] }) {
-  checkedIds.value = records.map((item) => item.id!);
-}
-
-/** 导出表格 */
 async function handleExport() {
+  exportLoading.value = true;
   try {
-    exportLoading.value = true;
-    const data = await exportLog(queryParams);
+    const data = await exportLog(await gridApi.formApi.getValues());
     downloadFileFromBlobPart({
-      fileName: '开放平台调用日志.xls',
+      fileName: '平台调用日志.xls',
       source: data,
     });
   } finally {
@@ -139,205 +42,134 @@ async function handleExport() {
   }
 }
 
-/** 初始化 */
-const { hiddenSearchBar, tableToolbarRef, tableRef } = useTableToolbar();
+function handleDetail(row: LogApi.Log) {
+  detailModalApi.setData(row).open();
+}
+
+function buildClientDisplayName(client: ClientOptionsApi.ClientListItem) {
+  return client.clientName || client.clientId;
+}
+
+function buildApiDisplayName(api: ApiApi.ApiListItem) {
+  return api.apiName || api.apiCode || String(api.id);
+}
+
+async function loadNameMaps() {
+  const [clients, apis] = await Promise.all([
+    getClientList(),
+    getApiSimpleList(),
+  ]);
+
+  clientOptions.value = clients.map((item) => ({
+    label: buildClientDisplayName(item),
+    value: item.clientId,
+  }));
+
+  apiOptions.value = apis.map((item) => ({
+    label: buildApiDisplayName(item),
+    value: item.id,
+  }));
+
+  clientNameMap.value = clients.reduce<Record<string, string>>((acc, item) => {
+    acc[String(item.clientId)] = buildClientDisplayName(item);
+    return acc;
+  }, {});
+
+  apiNameMap.value = apis.reduce<Record<string, string>>((acc, item) => {
+    acc[String(item.id)] = buildApiDisplayName(item);
+    return acc;
+  }, {});
+}
+
+function getClientDisplayName(clientId?: number | string) {
+  if (clientId === undefined || clientId === null || clientId === '') {
+    return '-';
+  }
+  return clientNameMap.value[String(clientId)] || String(clientId);
+}
+
+function getApiDisplayName(apiId?: number | string) {
+  if (apiId === undefined || apiId === null || apiId === '') {
+    return '-';
+  }
+  return apiNameMap.value[String(apiId)] || String(apiId);
+}
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions: {
+    schema: useGridFormSchema(clientOptions, apiOptions),
+  },
+  gridOptions: {
+    columns: useGridColumns(),
+    height: 'auto',
+    keepSource: true,
+    proxyConfig: {
+      ajax: {
+        query: async ({ page }, formValues) => {
+          return await getLogPage({
+            pageNo: page.currentPage,
+            pageSize: page.pageSize,
+            ...formValues,
+          });
+        },
+      },
+    },
+    rowConfig: {
+      keyField: 'id',
+      isHover: true,
+    },
+    toolbarConfig: {
+      refresh: true,
+      search: true,
+    },
+  } as VxeTableGridOptions<LogApi.Log>,
+});
+
 onMounted(() => {
-  getList();
+  void loadNameMaps();
 });
 </script>
 
 <template>
   <Page auto-content-height>
-    <FormModal @success="getList" />
+    <DetailModal />
 
-    <Card v-if="!hiddenSearchBar" class="mb-4">
-      <!-- 搜索工作栏 -->
-      <Form :model="queryParams" ref="queryFormRef" layout="inline">
-        <Form.Item label="客户端ID" name="clientId">
-          <Input
-            v-model:value="queryParams.clientId"
-            placeholder="请输入客户端ID"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="API ID（关联 platform_api.id）" name="apiId">
-          <Input
-            v-model:value="queryParams.apiId"
-            placeholder="请输入API ID（关联 platform_api.id）"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="API 编码" name="apiCode">
-          <Input
-            v-model:value="queryParams.apiCode"
-            placeholder="请输入API 编码"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="是否成功" name="success">
-          <Select
-            v-model:value="queryParams.success"
-            placeholder="请选择是否成功"
-            allow-clear
-            class="w-full"
-          >
-            <Select.Option label="请选择字典生成" value="" />
-          </Select>
-        </Form.Item>
-        <Form.Item>
-          <Button class="ml-2" @click="resetQuery"> 重置 </Button>
-          <Button class="ml-2" @click="handleQuery" type="primary">
-            搜索
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
-
-    <!-- 列表 -->
-    <Card title="开放平台调用日志">
-      <template #extra>
-        <VbenVxeTableToolbar
-          ref="tableToolbarRef"
-          v-model:hidden-search="hiddenSearchBar"
-        >
-          <!-- <Button
-              class="ml-2"
-              :icon="h(Plus)"
-              type="primary"
-              @click="handleCreate"
-              v-access:code="['platform:log:create']"
-          >
-            {{ $t('ui.actionTitle.create', ['开放平台调用日志']) }}
-          </Button> -->
-          <Button
-            :icon="h(Download)"
-            type="primary"
-            class="ml-2"
-            :loading="exportLoading"
-            @click="handleExport"
-            v-access:code="['platform:log:export']"
-          >
-            {{ $t('ui.actionTitle.export') }}
-          </Button>
-          <Button
-            :icon="h(Trash2)"
-            type="primary"
-            danger
-            class="ml-2"
-            :disabled="isEmpty(checkedIds)"
-            @click="handleDeleteBatch"
-            v-access:code="['platform:log:delete']"
-          >
-            批量删除
-          </Button>
-        </VbenVxeTableToolbar>
+    <Grid table-title="平台调用日志">
+      <template #toolbar-tools>
+        <TableAction
+          :actions="[
+            {
+              label: $t('ui.actionTitle.export'),
+              type: 'primary',
+              icon: ACTION_ICON.DOWNLOAD,
+              auth: ['platform:log:export'],
+              onClick: handleExport,
+            },
+          ]"
+        />
       </template>
-      <VxeTable
-        ref="tableRef"
-        :data="list"
-        show-overflow
-        :loading="loading"
-        @checkbox-all="handleRowCheckboxChange"
-        @checkbox-change="handleRowCheckboxChange"
-      >
-        <VxeColumn type="checkbox" width="40" />
-        <VxeColumn field="id" title="日志ID" align="center" />
-        <VxeColumn
-          field="traceId"
-          title="请求跟踪ID（对应 X-Trace-Id）"
-          align="center"
+
+      <template #clientName="{ row }">
+        {{ getClientDisplayName(row.clientId) }}
+      </template>
+
+      <template #apiName="{ row }">
+        {{ getApiDisplayName(row.apiId) }}
+      </template>
+
+      <template #actions="{ row }">
+        <TableAction
+          :actions="[
+            {
+              label: '详情',
+              type: 'link',
+              icon: ACTION_ICON.VIEW,
+              auth: ['platform:log:query'],
+              onClick: handleDetail.bind(null, row),
+            },
+          ]"
         />
-        <VxeColumn field="clientId" title="客户端ID" align="center" />
-        <VxeColumn
-          field="apiId"
-          title="API ID（关联 platform_api.id）"
-          align="center"
-        />
-        <VxeColumn field="apiCode" title="API 编码" align="center" />
-        <VxeColumn field="apiPath" title="API 路径" align="center" />
-        <VxeColumn field="httpMethod" title="HTTP 方法" align="center" />
-        <VxeColumn
-          field="requestHeaders"
-          title="请求头（JSON）"
-          align="center"
-        />
-        <VxeColumn
-          field="requestParams"
-          title="请求参数（JSON）"
-          align="center"
-        />
-        <VxeColumn field="requestBody" title="请求体（JSON）" align="center" />
-        <VxeColumn field="requestIp" title="请求IP" align="center" />
-        <VxeColumn field="requestUserAgent" title="User-Agent" align="center" />
-        <VxeColumn field="responseStatus" title="HTTP 状态码" align="center" />
-        <VxeColumn
-          field="responseBody"
-          title="响应内容（截断，保留前 10KB）"
-          align="center"
-        />
-        <VxeColumn field="durationMs" title="耗时（毫秒）" align="center" />
-        <VxeColumn field="success" title="是否成功" align="center" />
-        <VxeColumn field="errorCode" title="错误码" align="center" />
-        <VxeColumn field="errorMsg" title="错误信息" align="center" />
-        <VxeColumn
-          field="chargePrice"
-          title="本次计费金额（分）"
-          align="center"
-        />
-        <VxeColumn
-          field="chargeStatus"
-          title="扣费状态：1=成功 2=失败（余额不足）"
-          align="center"
-        />
-        <VxeColumn field="requestTime" title="请求时间（UTC）" align="center">
-          <template #default="{ row }">
-            {{ formatDateTime(row.requestTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn field="createTime" title="创建时间" align="center">
-          <template #default="{ row }">
-            {{ formatDateTime(row.createTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn field="operation" title="操作" align="center">
-          <template #default="{ row }">
-            <Button
-              size="small"
-              type="link"
-              @click="handleEdit(row)"
-              v-access:code="['platform:log:update']"
-            >
-              {{ $t('ui.actionTitle.edit') }}
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              danger
-              class="ml-2"
-              @click="handleDelete(row)"
-              v-access:code="['platform:log:delete']"
-            >
-              {{ $t('ui.actionTitle.delete') }}
-            </Button>
-          </template>
-        </VxeColumn>
-      </VxeTable>
-      <!-- 分页 -->
-      <div class="mt-2 flex justify-end">
-        <Pagination
-          :total="total"
-          v-model:current="queryParams.pageNo"
-          v-model:page-size="queryParams.pageSize"
-          show-size-changer
-          @change="getList"
-        />
-      </div>
-    </Card>
+      </template>
+    </Grid>
   </Page>
 </template>

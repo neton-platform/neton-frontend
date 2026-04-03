@@ -1,23 +1,17 @@
 <script lang="ts" setup>
-import type { Rule } from 'ant-design-vue/es/form';
-
+import type { ApiApi } from '#/api/platform/api';
+import type { ClientApi as ClientOptionsApi } from '#/api/platform/client';
 import type { ClientApiApi } from '#/api/platform/clientapi';
 
 import { computed, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
-import { DICT_TYPE } from '@vben/constants';
-import { getDictOptions } from '@vben/hooks';
 
-import {
-  DatePicker,
-  Form,
-  Input,
-  message,
-  Radio,
-  RadioGroup,
-} from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
+import { useVbenForm } from '#/adapter/form';
+import { getApiList } from '#/api/platform/api';
+import { getClientList } from '#/api/platform/client';
 import {
   createClientApi,
   getClientApi,
@@ -25,78 +19,122 @@ import {
 } from '#/api/platform/clientapi';
 import { $t } from '#/locales';
 
-const emit = defineEmits(['success']);
+import { useFormSchema } from '../data';
 
-const formRef = ref();
-const formData = ref<Partial<ClientApiApi.ClientApi>>({
-  id: undefined,
-  clientId: undefined,
-  apiId: undefined,
-  status: undefined,
-  rateLimitPerMin: undefined,
-  rateLimitPerDay: undefined,
-  isCustomPrice: 0,
-  customPrice: undefined,
-  startTime: undefined,
-  endTime: undefined,
-});
-const rules: Record<string, Rule[]> = {
-  clientId: [{ required: true, message: '客户端不能为空', trigger: 'blur' }],
-  apiId: [{ required: true, message: 'API ID不能为空', trigger: 'blur' }],
-  status: [{ required: true, message: '是否启用不能为空', trigger: 'blur' }],
-  isCustomPrice: [
-    { required: true, message: '是否自定义价格不能为空', trigger: 'blur' },
-  ],
-};
+const emit = defineEmits(['success']);
+const formData = ref<Partial<ClientApiApi.ClientApi>>();
+const clientOptions = ref<Array<{ label: string; value: number | string }>>([]);
+const apiOptions = ref<
+  Array<{ disabled?: boolean; label: string; value: number | string }>
+>([]);
+const apiDisabled = ref(true);
+const syncingForm = ref(false);
+
 const getTitle = computed(() => {
   return formData.value?.id
-    ? $t('ui.actionTitle.edit', ['客户端-API授权关系表（含自定义定价）'])
-    : $t('ui.actionTitle.create', ['客户端-API授权关系表（含自定义定价）']);
+    ? $t('ui.actionTitle.edit', ['用户-API授权'])
+    : $t('ui.actionTitle.create', ['用户-API授权']);
 });
 
-/** 重置表单 */
-function resetForm() {
-  formData.value = {
-    id: undefined,
-    clientId: undefined,
-    apiId: undefined,
-    status: undefined,
-    rateLimitPerMin: undefined,
-    rateLimitPerDay: undefined,
-    isCustomPrice: undefined,
-    customPrice: undefined,
-    startTime: undefined,
-    endTime: undefined,
-  };
-  formRef.value?.resetFields();
+function buildClientOptionLabel(client: ClientOptionsApi.ClientListItem) {
+  if (client.clientName) {
+    return `${client.clientName} (${client.clientId})`;
+  }
+  return client.clientId;
+}
+
+function buildApiOptionLabel(api: ApiApi.ApiListItem) {
+  if (api.apiName && api.apiCode) {
+    return `${api.apiName} (${api.apiCode})`;
+  }
+  return api.apiName || api.apiCode || String(api.id);
+}
+
+async function loadClientOptions() {
+  const clients = await getClientList();
+  clientOptions.value = clients.map((item) => ({
+    label: buildClientOptionLabel(item),
+    value: item.clientId,
+  }));
+}
+
+async function loadApiOptionsByClientId(
+  clientId?: number | string,
+  currentApiId?: number | string,
+) {
+  if (!clientId) {
+    apiOptions.value = [];
+    apiDisabled.value = true;
+    return;
+  }
+  const apis = await getApiList({ clientId });
+  apiOptions.value = apis.map((item) => ({
+    disabled: Boolean(item.selected) && String(item.id) !== String(currentApiId),
+    label: buildApiOptionLabel(item),
+    value: item.id,
+  }));
+  apiDisabled.value = false;
+}
+
+async function handleClientChange(clientId?: number | string) {
+  const currentApiId = syncingForm.value ? formData.value?.apiId : undefined;
+  await loadApiOptionsByClientId(clientId, currentApiId);
+  if (!syncingForm.value) {
+    await formApi.setValues({ apiId: undefined });
+  }
+}
+
+const [Form, formApi] = useVbenForm({
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
+    },
+    formItemClass: 'col-span-1',
+    labelWidth: 180,
+  },
+  wrapperClass: 'grid-cols-2',
+  layout: 'horizontal',
+  schema: useFormSchema(
+    clientOptions,
+    apiOptions,
+    apiDisabled,
+    (value) => void handleClientChange(value),
+  ),
+  showDefaultActions: false,
+});
+
+async function resetForm() {
+  formData.value = undefined;
+  apiOptions.value = [];
+  apiDisabled.value = true;
+  await formApi.resetForm();
 }
 
 const [Modal, modalApi] = useVbenModal({
   async onConfirm() {
-    await formRef.value?.validate();
+    const { valid } = await formApi.validate();
+    if (!valid) {
+      return;
+    }
     modalApi.lock();
-    // 提交表单
-    const data = formData.value as ClientApiApi.ClientApi;
+    const data = (await formApi.getValues()) as ClientApiApi.ClientApi;
     try {
-      await (formData.value?.id
-        ? updateClientApi(data)
-        : createClientApi(data));
-      // 关闭并提示
+      await (formData.value?.id ? updateClientApi(data) : createClientApi(data));
       await modalApi.close();
       emit('success');
-      message.success({
-        content: $t('ui.actionMessage.operationSuccess'),
-      });
+      message.success($t('ui.actionMessage.operationSuccess'));
     } finally {
       modalApi.unlock();
     }
   },
   async onOpenChange(isOpen: boolean) {
     if (!isOpen) {
-      resetForm();
+      await resetForm();
       return;
     }
-    // 加载数据
+
+    await resetForm();
+    await loadClientOptions();
     let data = modalApi.getData<ClientApiApi.ClientApi>();
     if (!data) {
       return;
@@ -110,87 +148,19 @@ const [Modal, modalApi] = useVbenModal({
       }
     }
     formData.value = data;
+    syncingForm.value = true;
+    try {
+      await loadApiOptionsByClientId(data.clientId, data.apiId);
+      await formApi.setValues(data);
+    } finally {
+      syncingForm.value = false;
+    }
   },
 });
 </script>
 
 <template>
   <Modal :title="getTitle" class="w-3/5">
-    <Form
-      ref="formRef"
-      :model="formData"
-      :rules="rules"
-      :label-col="{ span: 5 }"
-      :wrapper-col="{ span: 18 }"
-    >
-      <Form.Item label="客户端" name="clientId">
-        <Input v-model:value="formData.clientId" placeholder="请输入客户端" />
-      </Form.Item>
-      <Form.Item label="API ID" name="apiId">
-        <Input v-model:value="formData.apiId" placeholder="请输入API ID" />
-      </Form.Item>
-
-      <Form.Item label="是否自定义价格" name="isCustomPrice">
-        <RadioGroup v-model:value="formData.isCustomPrice">
-          <Radio
-            v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
-            :key="dict.value"
-            :value="dict.value"
-          >
-            {{ dict.label }}
-          </Radio>
-        </RadioGroup>
-      </Form.Item>
-      <Form.Item
-        v-if="formData.isCustomPrice == 1"
-        label="自定义价格"
-        name="customPrice"
-      >
-        <Input
-          suffix="分"
-          v-model:value="formData.customPrice"
-          placeholder="请输入自定义价格"
-        />
-      </Form.Item>
-      <Form.Item label="每分钟限流" name="rateLimitPerMin">
-        <Input
-          suffix="覆盖 API 默认配置"
-          v-model:value="formData.rateLimitPerMin"
-          placeholder="请输入每分钟限流"
-        />
-      </Form.Item>
-      <Form.Item label="每日配额" name="rateLimitPerDay">
-        <Input
-          suffix="覆盖客户端默认配置"
-          v-model:value="formData.rateLimitPerDay"
-          placeholder="请输入每日配额（覆盖客户端默认配置）"
-        />
-      </Form.Item>
-      <Form.Item label="授权开始时间" name="startTime">
-        <DatePicker
-          v-model:value="formData.startTime"
-          value-format="x"
-          placeholder="选择授权开始时间"
-        />
-      </Form.Item>
-      <Form.Item label="授权结束时间（为空表示永久）" name="endTime">
-        <DatePicker
-          v-model:value="formData.endTime"
-          value-format="x"
-          placeholder="选择授权结束时间（为空表示永久）"
-        />
-      </Form.Item>
-      <Form.Item label="是否启用" name="status">
-        <RadioGroup v-model:value="formData.status">
-          <Radio
-            v-for="dict in getDictOptions(DICT_TYPE.PLATFORM_BOOL, 'number')"
-            :key="dict.value"
-            :value="dict.value"
-          >
-            {{ dict.label }}
-          </Radio>
-        </RadioGroup>
-      </Form.Item>
-    </Form>
+    <Form class="mx-4" />
   </Modal>
 </template>

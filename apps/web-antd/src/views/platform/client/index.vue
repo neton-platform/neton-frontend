@@ -1,31 +1,16 @@
 <script lang="ts" setup>
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { ClientApi } from '#/api/platform/client';
 
-import { h, onMounted, reactive, ref } from 'vue';
+import { ref } from 'vue';
 
-import { Page, useVbenModal } from '@vben/common-ui';
+import { confirm, Page, useVbenModal } from '@vben/common-ui';
 import { DICT_TYPE } from '@vben/constants';
-import { getDictOptions } from '@vben/hooks';
-import { Download, Plus, Trash2 } from '@vben/icons';
-import { useTableToolbar, VbenVxeTableToolbar } from '@vben/plugins/vxe-table';
-import {
-  cloneDeep,
-  downloadFileFromBlobPart,
-  formatDateTime,
-  isEmpty,
-} from '@vben/utils';
+import { downloadFileFromBlobPart, isEmpty } from '@vben/utils';
 
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  message,
-  Pagination,
-  Select,
-} from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
-import { VxeColumn, VxeTable } from '#/adapter/vxe-table';
+import { ACTION_ICON, TableAction, useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteClient,
   deleteClientList,
@@ -35,57 +20,21 @@ import {
 import { DictTag } from '#/components/dict-tag';
 import { $t } from '#/locales';
 
-import ClientForm from './modules/form.vue';
+import { useGridColumns, useGridFormSchema } from './data';
+import Form from './modules/form.vue';
 
-const loading = ref(true); // 列表的加载中
-const list = ref<ClientApi.Client[]>([]); // 列表的数据
-
-const total = ref(0); // 列表的总页数
-const queryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  clientId: undefined,
-  clientName: undefined,
-  clientCode: undefined,
-  companyName: undefined,
-  businessLicense: undefined,
-  contactName: undefined,
-  contactEmail: undefined,
-  contactPhone: undefined,
-  status: undefined,
-});
-const queryFormRef = ref(); // 搜索的表单
-const exportLoading = ref(false); // 导出的加载中
-
-/** 查询列表 */
-async function getList() {
-  loading.value = true;
-  try {
-    const params = cloneDeep(queryParams) as any;
-    const data = await getClientPage(params);
-    list.value = data.list;
-    total.value = data.total;
-  } finally {
-    loading.value = false;
-  }
-}
-
-/** 搜索按钮操作 */
-function handleQuery() {
-  queryParams.pageNo = 1;
-  getList();
-}
-
-/** 重置按钮操作 */
-function resetQuery() {
-  queryFormRef.value.resetFields();
-  handleQuery();
-}
+const exportLoading = ref(false);
+const checkedIds = ref<number[]>([]);
 
 const [FormModal, formModalApi] = useVbenModal({
-  connectedComponent: ClientForm,
+  connectedComponent: Form,
   destroyOnClose: true,
 });
+
+/** 刷新表格 */
+function handleRefresh() {
+  gridApi.query();
+}
 
 /** 创建开放平台客户端 */
 function handleCreate() {
@@ -100,13 +49,15 @@ function handleEdit(row: ClientApi.Client) {
 /** 删除开放平台客户端 */
 async function handleDelete(row: ClientApi.Client) {
   const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting', [row.id]),
+    content: $t('ui.actionMessage.deleting', [row.clientName || row.id]),
     duration: 0,
   });
   try {
-    await deleteClient(row.id!);
-    message.success($t('ui.actionMessage.deleteSuccess', [row.id]));
-    await getList();
+    await deleteClient(row.id);
+    message.success(
+      $t('ui.actionMessage.deleteSuccess', [row.clientName || row.id]),
+    );
+    handleRefresh();
   } finally {
     hideLoading();
   }
@@ -114,397 +65,159 @@ async function handleDelete(row: ClientApi.Client) {
 
 /** 批量删除开放平台客户端 */
 async function handleDeleteBatch() {
+  await confirm($t('ui.actionMessage.deleteBatchConfirm'));
   const hideLoading = message.loading({
-    content: $t('ui.actionMessage.deleting'),
+    content: $t('ui.actionMessage.deletingBatch'),
     duration: 0,
   });
   try {
     await deleteClientList(checkedIds.value);
     checkedIds.value = [];
     message.success($t('ui.actionMessage.deleteSuccess'));
-    await getList();
+    handleRefresh();
   } finally {
     hideLoading();
   }
 }
 
-const checkedIds = ref<number[]>([]);
-function handleRowCheckboxChange({ records }: { records: ClientApi.Client[] }) {
-  checkedIds.value = records.map((item) => item.id!);
-}
-
 /** 导出表格 */
 async function handleExport() {
+  exportLoading.value = true;
   try {
-    exportLoading.value = true;
-    const data = await exportClient(queryParams);
+    const data = await exportClient(await gridApi.formApi.getValues());
     downloadFileFromBlobPart({ fileName: '开放平台客户端.xls', source: data });
   } finally {
     exportLoading.value = false;
   }
 }
 
-/** 初始化 */
-const { hiddenSearchBar, tableToolbarRef, tableRef } = useTableToolbar();
-onMounted(() => {
-  getList();
+function handleRowCheckboxChange({
+  records,
+}: {
+  records: ClientApi.Client[];
+}) {
+  checkedIds.value = records.map((item) => item.id);
+}
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions: {
+    schema: useGridFormSchema(),
+  },
+  gridOptions: {
+    columns: useGridColumns(),
+    height: 'auto',
+    keepSource: true,
+    proxyConfig: {
+      ajax: {
+        query: async ({ page }, formValues) => {
+          return await getClientPage({
+            pageNo: page.currentPage,
+            pageSize: page.pageSize,
+            ...formValues,
+          });
+        },
+      },
+    },
+    rowConfig: {
+      keyField: 'id',
+      isHover: true,
+    },
+    toolbarConfig: {
+      refresh: true,
+      search: true,
+    },
+  } as VxeTableGridOptions<ClientApi.Client>,
+  gridEvents: {
+    checkboxAll: handleRowCheckboxChange,
+    checkboxChange: handleRowCheckboxChange,
+  },
 });
 </script>
 
 <template>
   <Page auto-content-height>
-    <FormModal @success="getList" />
+    <FormModal @success="handleRefresh" />
 
-    <Card v-if="!hiddenSearchBar" class="mb-4">
-      <!-- 搜索工作栏 -->
-      <Form :model="queryParams" ref="queryFormRef" layout="inline">
-        <Form.Item label="客户端唯一标识（公开）" name="clientId">
-          <Input
-            v-model:value="queryParams.clientId"
-            placeholder="请输入客户端唯一标识（公开）"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="客户端名称" name="clientName">
-          <Input
-            v-model:value="queryParams.clientName"
-            placeholder="请输入客户端名称"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="客户端编码（英文标识）" name="clientCode">
-          <Input
-            v-model:value="queryParams.clientCode"
-            placeholder="请输入客户端编码（英文标识）"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="公司名称" name="companyName">
-          <Input
-            v-model:value="queryParams.companyName"
-            placeholder="请输入公司名称"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="营业执照号" name="businessLicense">
-          <Input
-            v-model:value="queryParams.businessLicense"
-            placeholder="请输入营业执照号"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="联系人姓名" name="contactName">
-          <Input
-            v-model:value="queryParams.contactName"
-            placeholder="请输入联系人姓名"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="联系人邮箱" name="contactEmail">
-          <Input
-            v-model:value="queryParams.contactEmail"
-            placeholder="请输入联系人邮箱"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="联系人电话" name="contactPhone">
-          <Input
-            v-model:value="queryParams.contactPhone"
-            placeholder="请输入联系人电话"
-            allow-clear
-            @press-enter="handleQuery"
-            class="w-full"
-          />
-        </Form.Item>
-        <Form.Item label="状态" name="status">
-          <Select
-            v-model:value="queryParams.status"
-            placeholder="请选择状态"
-            allow-clear
-            class="w-full"
-          >
-            <Select.Option
-              v-for="dict in getDictOptions(
-                DICT_TYPE.PLATFORM_CLIENT_STATUS,
-                'number',
-              )"
-              :key="dict.value"
-              :value="dict.value"
-            >
-              {{ dict.label }}
-            </Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item>
-          <Button class="ml-2" @click="resetQuery"> 重置 </Button>
-          <Button class="ml-2" @click="handleQuery" type="primary">
-            搜索
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
-
-    <!-- 列表 -->
-    <Card title="开放平台客户端">
-      <template #extra>
-        <VbenVxeTableToolbar
-          ref="tableToolbarRef"
-          v-model:hidden-search="hiddenSearchBar"
-        >
-          <Button
-            class="ml-2"
-            :icon="h(Plus)"
-            type="primary"
-            @click="handleCreate"
-            v-access:code="['platform:client:create']"
-          >
-            {{ $t('ui.actionTitle.create', ['客户端']) }}
-          </Button>
-          <Button
-            :icon="h(Download)"
-            type="primary"
-            class="ml-2"
-            :loading="exportLoading"
-            @click="handleExport"
-            v-access:code="['platform:client:export']"
-          >
-            {{ $t('ui.actionTitle.export') }}
-          </Button>
-          <Button
-            :icon="h(Trash2)"
-            type="primary"
-            danger
-            class="ml-2"
-            :disabled="isEmpty(checkedIds)"
-            @click="handleDeleteBatch"
-            v-access:code="['platform:client:delete']"
-          >
-            批量删除
-          </Button>
-        </VbenVxeTableToolbar>
+    <Grid table-title="开放平台客户端列表">
+      <template #toolbar-tools>
+        <TableAction
+          :actions="[
+            {
+              label: $t('ui.actionTitle.create', ['客户端']),
+              type: 'primary',
+              icon: ACTION_ICON.ADD,
+              auth: ['platform:client:create'],
+              onClick: handleCreate,
+            },
+            {
+              label: $t('ui.actionTitle.export'),
+              type: 'primary',
+              icon: ACTION_ICON.DOWNLOAD,
+              auth: ['platform:client:export'],
+              onClick: handleExport,
+            },
+            {
+              label: $t('ui.actionTitle.deleteBatch'),
+              type: 'primary',
+              danger: true,
+              icon: ACTION_ICON.DELETE,
+              disabled: isEmpty(checkedIds),
+              auth: ['platform:client:delete'],
+              onClick: handleDeleteBatch,
+            },
+          ]"
+        />
       </template>
-      <VxeTable
-        ref="tableRef"
-        :data="list"
-        show-overflow
-        :loading="loading"
-        @checkbox-all="handleRowCheckboxChange"
-        @checkbox-change="handleRowCheckboxChange"
-      >
-        <VxeColumn type="checkbox" width="40" />
-        <VxeColumn
-          field="clientLogo"
-          title="客户端Logo"
-          align="center"
-          width="100"
+
+      <template #clientLogo="{ row }">
+        <div class="flex justify-center">
+          <img
+            v-if="row.clientLogo"
+            :src="row.clientLogo"
+            alt="logo"
+            class="h-10 w-10 rounded object-cover"
+          />
+          <span v-else>-</span>
+        </div>
+      </template>
+
+      <template #status="{ row }">
+        <DictTag
+          :type="DICT_TYPE.PLATFORM_CLIENT_STATUS"
+          :value="row.status"
         />
-        <VxeColumn field="id" title="客户端ID" align="center" width="120" />
-        <VxeColumn
-          field="clientId"
-          title="客户端唯一标识（公开）"
-          align="center"
-          width="120"
+      </template>
+
+      <template #clientType="{ row }">
+        <DictTag :type="DICT_TYPE.PLATFORM_CLIENT_TYPE" :value="row.clientType" />
+      </template>
+
+      <template #actions="{ row }">
+        <TableAction
+          :actions="[
+            {
+              label: $t('common.edit'),
+              type: 'link',
+              icon: ACTION_ICON.EDIT,
+              auth: ['platform:client:update'],
+              onClick: handleEdit.bind(null, row),
+            },
+            {
+              label: $t('common.delete'),
+              type: 'link',
+              danger: true,
+              icon: ACTION_ICON.DELETE,
+              auth: ['platform:client:delete'],
+              popConfirm: {
+                title: $t('ui.actionMessage.deleteConfirm', [
+                  row.clientName || row.id,
+                ]),
+                confirm: handleDelete.bind(null, row),
+              },
+            },
+          ]"
         />
-        <VxeColumn
-          field="clientName"
-          title="客户端名称"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="clientCode"
-          title="客户端编码（英文标识）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="description"
-          title="客户端描述"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="companyName"
-          title="公司名称"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="businessLicense"
-          title="营业执照号"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="contactName"
-          title="联系人姓名"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="contactEmail"
-          title="联系人邮箱"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="contactPhone"
-          title="联系人电话"
-          align="center"
-          width="120"
-        />
-        <VxeColumn field="status" title="状态" align="center" width="120">
-          <template #default="{ row }">
-            <DictTag
-              :type="DICT_TYPE.PLATFORM_CLIENT_STATUS"
-              :value="row.status"
-            />
-          </template>
-        </VxeColumn>
-        <VxeColumn
-          field="clientType"
-          title="客户端类型"
-          align="center"
-          width="120"
-        >
-          <template #default="{ row }">
-            <DictTag
-              :type="DICT_TYPE.PLATFORM_CLIENT_TYPE"
-              :value="row.clientType"
-            />
-          </template>
-        </VxeColumn>
-        <VxeColumn
-          field="rateLimitPerMin"
-          title="每分钟频率限制（次/分钟）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="rateLimitPerDay"
-          title="每日调用配额"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="usedCountToday"
-          title="今日已用次数"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="totalUsedCount"
-          title="累计调用次数"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="balance"
-          title="账户余额（分）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="totalCharged"
-          title="累计消费金额（分）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="lowBalanceAlert"
-          title="余额不足预警阈值（分，默认100元）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="allowedIps"
-          title="允许的IP白名单"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="webhookUrl"
-          title="回调地址（接收平台通知）"
-          align="center"
-          width="120"
-        />
-        <VxeColumn
-          field="expiredTime"
-          title="过期时间（为空表示永久有效）"
-          align="center"
-          width="120"
-        >
-          <template #default="{ row }">
-            {{ formatDateTime(row.expiredTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn
-          field="lastCallTime"
-          title="最后调用时间"
-          align="center"
-          width="120"
-        >
-          <template #default="{ row }">
-            {{ formatDateTime(row.lastCallTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn
-          field="createTime"
-          title="创建时间"
-          align="center"
-          width="120"
-        >
-          <template #default="{ row }">
-            {{ formatDateTime(row.createTime) }}
-          </template>
-        </VxeColumn>
-        <VxeColumn field="operation" title="操作" align="center" width="120">
-          <template #default="{ row }">
-            <Button
-              size="small"
-              type="link"
-              @click="handleEdit(row)"
-              v-access:code="['platform:client:update']"
-            >
-              {{ $t('ui.actionTitle.edit') }}
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              danger
-              class="ml-2"
-              @click="handleDelete(row)"
-              v-access:code="['platform:client:delete']"
-            >
-              {{ $t('ui.actionTitle.delete') }}
-            </Button>
-          </template>
-        </VxeColumn>
-      </VxeTable>
-      <!-- 分页 -->
-      <div class="mt-2 flex justify-end">
-        <Pagination
-          :total="total"
-          v-model:current="queryParams.pageNo"
-          v-model:page-size="queryParams.pageSize"
-          show-size-changer
-          @change="getList"
-        />
-      </div>
-    </Card>
+      </template>
+    </Grid>
   </Page>
 </template>

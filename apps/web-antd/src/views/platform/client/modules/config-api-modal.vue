@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { CheckboxValueType } from 'ant-design-vue/es/checkbox/interface';
+
 import type { ApiApi } from '#/api/platform/api';
 import type { ClientApi } from '#/api/platform/client';
 import type { ClientApiApi } from '#/api/platform/clientapi';
@@ -51,9 +53,7 @@ const isActiveAssociated = computed(() =>
     : false,
 );
 const showCustomPrice = computed(
-  () =>
-    detailFormData.value.isCustomPrice == 1 ||
-    detailFormData.value.isCustomPrice === true,
+  () => Number(detailFormData.value.isCustomPrice) === 1,
 );
 const title = computed(() =>
   clientName.value
@@ -102,7 +102,7 @@ async function loadDetail(apiId: number) {
       clientId: clientId.value,
       apiId,
     });
-    data.isCustomPrice = data.isCustomPrice == true ? 1 : 0;
+    data.isCustomPrice = Number(data.isCustomPrice) === 1 ? 1 : 0;
     detailFormData.value = data ?? {};
   } finally {
     detailLoading.value = false;
@@ -138,18 +138,21 @@ function handleApiClick(api: ApiApi.ApiListItem) {
   }
 }
 
-async function handleSelectionChange(nextSelected: number[]) {
+async function handleSelectionChange(nextSelected: CheckboxValueType[]) {
   if (!clientId.value || associationSaving.value) {
     return;
   }
+  const nextSelectedIds = nextSelected
+    .map((value) => Number(value))
+    .filter((value) => !Number.isNaN(value));
   const previousAssociated = [...associatedApiIds.value];
   associationSaving.value = true;
   try {
     await createClientApiAssociation({
       clientId: clientId.value,
-      apiIdList: nextSelected,
+      apiIdList: nextSelectedIds,
     });
-    associatedApiIds.value = [...nextSelected];
+    associatedApiIds.value = [...nextSelectedIds];
     if (
       activeApiId.value &&
       associatedApiIds.value.includes(activeApiId.value)
@@ -265,7 +268,7 @@ const [Modal, modalApi] = useVbenModal({
                       DICT_TYPE.PLATFORM_BOOL,
                       'number',
                     )"
-                    :key="dict.value"
+                    :key="String(dict.value)"
                     :value="dict.value"
                   >
                     {{ dict.label }}
@@ -291,7 +294,7 @@ const [Modal, modalApi] = useVbenModal({
                       DICT_TYPE.PLATFORM_BOOL,
                       'number',
                     )"
-                    :key="dict.value"
+                    :key="String(dict.value)"
                     :value="dict.value"
                   >
                     {{ dict.label }}
