@@ -15,6 +15,11 @@ export namespace ApiApi {
     status?: number; // 状态
     isPublic?: boolean; // 是否公开
     rateLimitPerMin?: number; // 每分钟限流
+    rateLimit?: string; // 限流描述
+    requestSchema?: string; // 请求 Schema(JSON)
+    responseSchema?: string; // 响应 Schema(JSON)
+    requestExample?: string; // 请求示例(JSON)
+    responseExample?: string; // 响应示例(JSON)
     chargeType?: number; // 计费类型
     defaultPrice?: number; // 默认单价（分）
   }

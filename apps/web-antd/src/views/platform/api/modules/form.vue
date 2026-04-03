@@ -37,6 +37,11 @@ const formData = ref<Partial<ApiApi.Api>>({
   status: undefined,
   isPublic: undefined,
   rateLimitPerMin: undefined,
+  rateLimit: undefined,
+  requestSchema: undefined,
+  responseSchema: undefined,
+  requestExample: undefined,
+  responseExample: undefined,
   chargeType: undefined,
   defaultPrice: undefined,
 });
@@ -78,6 +83,11 @@ function resetForm() {
     status: undefined,
     isPublic: undefined,
     rateLimitPerMin: undefined,
+    rateLimit: undefined,
+    requestSchema: undefined,
+    responseSchema: undefined,
+    requestExample: undefined,
+    responseExample: undefined,
     chargeType: undefined,
     defaultPrice: undefined,
   };
@@ -179,6 +189,40 @@ const [Modal, modalApi] = useVbenModal({
         <Input
           v-model:value="formData.rateLimitPerMin"
           placeholder="请输入每分钟限流"
+        />
+      </Form.Item>
+      <Form.Item label="限流描述" name="rateLimit">
+        <Input
+          v-model:value="formData.rateLimit"
+          placeholder="请输入限流描述，如 100 次/分钟"
+        />
+      </Form.Item>
+      <Form.Item label="请求字段 Schema" name="requestSchema">
+        <Textarea
+          v-model="formData.requestSchema"
+          placeholder='请输入请求字段 JSON，例如 [{"field":"idCard","type":"String"}]'
+          :auto-size="{ minRows: 3, maxRows: 6 }"
+        />
+      </Form.Item>
+      <Form.Item label="响应字段 Schema" name="responseSchema">
+        <Textarea
+          v-model="formData.responseSchema"
+          placeholder='请输入响应字段 JSON，例如 [{"field":"riskLevel","type":"String"}]'
+          :auto-size="{ minRows: 3, maxRows: 6 }"
+        />
+      </Form.Item>
+      <Form.Item label="请求示例" name="requestExample">
+        <Textarea
+          v-model="formData.requestExample"
+          placeholder='{ "idCard": "440101199001011234" }'
+          :auto-size="{ minRows: 3, maxRows: 6 }"
+        />
+      </Form.Item>
+      <Form.Item label="响应示例" name="responseExample">
+        <Textarea
+          v-model="formData.responseExample"
+          placeholder='{ "riskLevel": "LOW" }'
+          :auto-size="{ minRows: 3, maxRows: 6 }"
         />
       </Form.Item>
       <Form.Item label="计费类型" name="chargeType">
