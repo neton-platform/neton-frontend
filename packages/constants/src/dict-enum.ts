@@ -176,6 +176,7 @@ const IOT_DICT = {
 const PLATFORM_DICT = {
   PLATFORM_CLIENT_STATUS: 'platform_client_status',
   PLATFORM_CHARGE_TYPE: 'platform_charge_type',
+  PLATFORM_CHARGE_OPERATE_TYPE: 'platform_charge_operate_type',
   PLATFORM_BOOL: 'platform_bool',
   PLATFORM_CLIENT_TYPE: 'platform_client_type',
   PLATFORM_REQUEST_METHOD: 'platform_request_method',

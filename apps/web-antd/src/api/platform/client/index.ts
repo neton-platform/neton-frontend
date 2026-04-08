@@ -42,6 +42,24 @@ export namespace ClientApi {
     clientId: string;
     clientName?: string;
   }
+
+  /** 手动调账请求 */
+  export interface BalanceAdjustReq {
+    id?: number;
+    clientId?: string;
+    amount: number;
+    operateType: number;
+    remark?: string;
+  }
+
+  /** 手动调账响应 */
+  export interface BalanceAdjustResp {
+    clientId: string;
+    balanceBefore: number;
+    balanceAfter: number;
+    recordId: number;
+    traceId: string;
+  }
 }
 
 /** 查询开放平台客户端分页 */
@@ -97,4 +115,12 @@ export function generateAppId() {
 /** 生成客户端密钥 */
 export function generateAppSecret() {
   return requestClient.get<string>('/platform/client/generateAppSecret');
+}
+
+/** 手动调账 */
+export function adjustBalance(data: ClientApi.BalanceAdjustReq) {
+  return requestClient.post<ClientApi.BalanceAdjustResp>(
+    '/platform/client/adjust-balance',
+    data,
+  );
 }

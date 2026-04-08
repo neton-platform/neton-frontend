@@ -239,6 +239,12 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
       slots: { default: 'chargeType' },
     },
     {
+      field: 'operateType',
+      title: '操作类型',
+      minWidth: 120,
+      slots: { default: 'operateType' },
+    },
+    {
       field: 'price',
       title: '本次计费金额（分）',
       minWidth: 140,
@@ -270,6 +276,13 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
       title: '失败原因',
       minWidth: 180,
       showOverflow: 'tooltip',
+    },
+    {
+      field: 'remark',
+      title: '备注',
+      minWidth: 200,
+      showOverflow: 'tooltip',
+      slots: { default: 'remark' },
     },
     {
       field: 'chargeTime',

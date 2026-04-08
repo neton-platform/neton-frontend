@@ -84,6 +84,26 @@ function getApiDisplayName(apiId?: number | string) {
   return apiNameMap.value[String(apiId)] || String(apiId);
 }
 
+function parseAmount(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+  const num = Number(value);
+  return Number.isNaN(num) ? 0 : num;
+}
+
+function getChangeDirection(row: ChargeRecordApi.ChargeRecord) {
+  const before = parseAmount(row.balanceBefore);
+  const after = parseAmount(row.balanceAfter);
+  if (after > before) {
+    return { color: 'green', text: '增加' };
+  }
+  if (after < before) {
+    return { color: 'red', text: '扣减' };
+  }
+  return { color: 'default', text: '无变化' };
+}
+
 /** 导出表格 */
 async function handleExport() {
   exportLoading.value = true;
@@ -171,12 +191,24 @@ onMounted(() => {
         />
       </template>
 
+      <template #operateType="{ row }">
+        <a-tag :color="getChangeDirection(row).color">
+          {{ getChangeDirection(row).text }}
+        </a-tag>
+      </template>
+
       <template #isCustomPrice="{ row }">
         <DictTag :type="DICT_TYPE.PLATFORM_BOOL" :value="row.isCustomPrice" />
       </template>
 
       <template #chargeStatus="{ row }">
         <DictTag :type="DICT_TYPE.PLATFORM_BOOL" :value="row.chargeStatus" />
+      </template>
+
+      <template #remark="{ row }">
+        <span class="whitespace-pre-wrap break-all">
+          {{ row.remark || '-' }}
+        </span>
       </template>
 
       <template #clientName="{ row }">

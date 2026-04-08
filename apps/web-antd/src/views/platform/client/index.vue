@@ -22,6 +22,11 @@ import { $t } from '#/locales';
 
 import { useGridColumns, useGridFormSchema } from './data';
 import Form from './modules/form.vue';
+import RechargeModal from './modules/recharge-modal.vue';
+
+type RechargeModalExpose = {
+  open: (data?: ClientApi.Client) => Promise<void> | void;
+};
 
 const exportLoading = ref(false);
 const checkedIds = ref<number[]>([]);
@@ -30,6 +35,8 @@ const [FormModal, formModalApi] = useVbenModal({
   connectedComponent: Form,
   destroyOnClose: true,
 });
+
+const rechargeModalRef = ref<RechargeModalExpose>();
 
 /** 刷新表格 */
 function handleRefresh() {
@@ -44,6 +51,10 @@ function handleCreate() {
 /** 编辑开放平台客户端 */
 function handleEdit(row: ClientApi.Client) {
   formModalApi.setData(row).open();
+}
+
+function openRechargeModal(row: ClientApi.Client) {
+  rechargeModalRef.value?.open(row);
 }
 
 /** 删除开放平台客户端 */
@@ -91,11 +102,7 @@ async function handleExport() {
   }
 }
 
-function handleRowCheckboxChange({
-  records,
-}: {
-  records: ClientApi.Client[];
-}) {
+function handleRowCheckboxChange({ records }: { records: ClientApi.Client[] }) {
   checkedIds.value = records.map((item) => item.id);
 }
 
@@ -137,6 +144,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
 <template>
   <Page auto-content-height>
     <FormModal @success="handleRefresh" />
+    <RechargeModal ref="rechargeModalRef" @success="handleRefresh" />
 
     <Grid table-title="开放平台客户端列表">
       <template #toolbar-tools>
@@ -182,14 +190,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
       </template>
 
       <template #status="{ row }">
-        <DictTag
-          :type="DICT_TYPE.PLATFORM_CLIENT_STATUS"
-          :value="row.status"
-        />
+        <DictTag :type="DICT_TYPE.PLATFORM_CLIENT_STATUS" :value="row.status" />
       </template>
 
       <template #clientType="{ row }">
-        <DictTag :type="DICT_TYPE.PLATFORM_CLIENT_TYPE" :value="row.clientType" />
+        <DictTag
+          :type="DICT_TYPE.PLATFORM_CLIENT_TYPE"
+          :value="row.clientType"
+        />
       </template>
 
       <template #actions="{ row }">
@@ -201,6 +209,12 @@ const [Grid, gridApi] = useVbenVxeGrid({
               icon: ACTION_ICON.EDIT,
               auth: ['platform:client:update'],
               onClick: handleEdit.bind(null, row),
+            },
+            {
+              label: '余额调账',
+              type: 'link',
+              icon: ACTION_ICON.ADD,
+              onClick: openRechargeModal.bind(null, row),
             },
             {
               label: $t('common.delete'),

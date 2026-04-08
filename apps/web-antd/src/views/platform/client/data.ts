@@ -190,44 +190,11 @@ export function useFormSchema(
     },
     {
       component: 'InputNumber',
-      fieldName: 'usedCountToday',
-      label: '今日已用次数',
-      componentProps: {
-        min: 0,
-        placeholder: '请输入今日已用次数',
-        precision: 0,
-      },
-      rules: 'required',
-    },
-    {
-      component: 'InputNumber',
       fieldName: 'totalUsedCount',
       label: '累计调用次数',
       componentProps: {
         min: 0,
         placeholder: '请输入累计调用次数',
-        precision: 0,
-      },
-      rules: 'required',
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'balance',
-      label: '账户余额(分)',
-      componentProps: {
-        min: 0,
-        placeholder: '请输入账户余额(分)',
-        precision: 0,
-      },
-      rules: 'required',
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'totalCharged',
-      label: '累计消费金额(分)',
-      componentProps: {
-        min: 0,
-        placeholder: '请输入累计消费金额(分)',
         precision: 0,
       },
       rules: 'required',

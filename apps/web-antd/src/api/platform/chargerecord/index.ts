@@ -11,10 +11,13 @@ export namespace ChargeRecordApi {
     apiId?: number | string; // API ID
     traceId?: string; // 请求跟踪ID（关联日志）
     chargeType?: number; // 计费类型
+    operateType?: number; // 操作类型
     price?: number; // 本次计费金额（分）
     isCustomPrice?: boolean; // 是否使用自定义价格
     balanceBefore?: number; // 扣费前余额（分）
     balanceAfter?: number; // 扣费后余额（分）
+    operator?: string; // 操作人
+    remark?: string; // 备注
     chargeStatus?: number; // 是否扣费成功
     failureReason?: string; // 失败原因
     chargeTime?: string | Dayjs; // 扣费时间
