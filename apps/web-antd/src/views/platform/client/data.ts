@@ -5,6 +5,7 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 
 import { CommonStatusEnum, DICT_TYPE } from '@vben/constants';
 import { getDictOptions } from '@vben/hooks';
+import { fenToYuan } from '@vben/utils';
 
 import { z } from '#/adapter/form';
 
@@ -18,6 +19,13 @@ interface ClientFormSchemaOptions {
   memberOptions: Ref<MemberOption[]>;
   onMemberDropdownVisibleChange: (open: boolean) => Promise<void> | void;
   onMemberSearch: (value: string) => Promise<void> | void;
+}
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
 }
 
 /** 新增/修改的表单 */
@@ -202,11 +210,12 @@ export function useFormSchema(
     {
       component: 'InputNumber',
       fieldName: 'lowBalanceAlert',
-      label: '余额预警阈值(分)',
+      label: '余额预警阈值(元)',
       componentProps: {
         min: 0,
-        placeholder: '请输入余额不足预警阈值',
-        precision: 0,
+        placeholder: '请输入余额不足预警阈值（元）',
+        precision: 2,
+        step: 0.01,
       },
       rules: 'required',
     },
@@ -441,18 +450,21 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
     },
     {
       field: 'balance',
-      title: '余额(分)',
+      title: '余额(元)',
       minWidth: 120,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'totalCharged',
-      title: '累计消费(分)',
+      title: '累计消费(元)',
       minWidth: 130,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'lowBalanceAlert',
-      title: '余额预警(分)',
+      title: '余额预警(元)',
       minWidth: 130,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'allowedIps',

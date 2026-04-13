@@ -96,7 +96,7 @@ function getChangeDirection(row: ChargeRecordApi.ChargeRecord) {
   const before = parseAmount(row.balanceBefore);
   const after = parseAmount(row.balanceAfter);
   if (after > before) {
-    return { color: 'green', text: '增加' };
+    return { color: 'green', text: '充值' };
   }
   if (after < before) {
     return { color: 'red', text: '扣减' };

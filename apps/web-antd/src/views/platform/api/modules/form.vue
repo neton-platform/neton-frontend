@@ -4,6 +4,7 @@ import type { ApiApi } from '#/api/platform/api';
 import { computed, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
+import { fenToYuan, yuanToFen } from '@vben/utils';
 
 import { message } from 'ant-design-vue';
 
@@ -41,6 +42,26 @@ async function resetForm() {
   await formApi.resetForm();
 }
 
+function formatFormData(data: ApiApi.Api) {
+  return {
+    ...data,
+    defaultPrice:
+      data.defaultPrice === undefined || data.defaultPrice === null
+        ? data.defaultPrice
+        : Number(fenToYuan(data.defaultPrice)),
+  };
+}
+
+function buildSubmitData(data: ApiApi.Api) {
+  return {
+    ...data,
+    defaultPrice:
+      data.defaultPrice === undefined || data.defaultPrice === null
+        ? data.defaultPrice
+        : yuanToFen(data.defaultPrice),
+  };
+}
+
 const [Modal, modalApi] = useVbenModal({
   async onConfirm() {
     const { valid } = await formApi.validate();
@@ -48,7 +69,7 @@ const [Modal, modalApi] = useVbenModal({
       return;
     }
     modalApi.lock();
-    const data = (await formApi.getValues()) as ApiApi.Api;
+    const data = buildSubmitData((await formApi.getValues()) as ApiApi.Api);
     try {
       await (formData.value?.id ? updateApi(data) : createApi(data));
       await modalApi.close();
@@ -78,7 +99,7 @@ const [Modal, modalApi] = useVbenModal({
       }
     }
     formData.value = data;
-    await formApi.setValues(data);
+    await formApi.setValues(formatFormData(data));
   },
 });
 </script>

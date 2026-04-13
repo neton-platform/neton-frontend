@@ -3,6 +3,7 @@ import type { VbenFormSchema } from '#/adapter/form';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 
 import { computed } from 'vue';
+import { fenToYuan } from '@vben/utils';
 
 const placeholderSelectOptions = [{ label: '请选择字典生成', value: '' }];
 const placeholderRadioOptions = [{ label: '请选择字典生成', value: '1' }];
@@ -10,6 +11,13 @@ const placeholderRadioOptions = [{ label: '请选择字典生成', value: '1' }]
 interface SelectOption {
   label: string;
   value: number | string;
+}
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
 }
 
 /** 新增/修改的表单 */
@@ -324,7 +332,12 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
       minWidth: 180,
       showOverflow: 'tooltip',
     },
-    { field: 'chargePrice', title: '本次计费金额（分）', minWidth: 160 },
+    {
+      field: 'chargePrice',
+      title: '本次计费金额（元）',
+      minWidth: 160,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
+    },
     {
       field: 'chargeStatus',
       title: '扣费状态：1=成功 2=失败（余额不足）',

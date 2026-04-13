@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
 import { DICT_TYPE } from '@vben/constants';
-import { formatDateTime } from '@vben/utils';
+import { fenToYuan, formatDateTime } from '@vben/utils';
 
 import { Descriptions, Tag } from 'ant-design-vue';
 
@@ -21,6 +21,13 @@ function formatValue(value?: number | string | null) {
     return '-';
   }
   return String(value);
+}
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
 }
 
 function formatTime(value?: string) {
@@ -39,7 +46,7 @@ function getChangeDirection() {
   const before = parseAmount(detailData.value?.balanceBefore as any);
   const after = parseAmount(detailData.value?.balanceAfter as any);
   if (after > before) {
-    return { color: 'green', text: '增加' };
+    return { color: 'green', text: '充值' };
   }
   if (after < before) {
     return { color: 'red', text: '扣减' };
@@ -93,8 +100,8 @@ const [Modal, modalApi] = useVbenModal({
           :value="detailData?.chargeType"
         />
       </Descriptions.Item>
-      <Descriptions.Item label="本次计费金额（分）">
-        {{ formatValue(detailData?.price) }}
+      <Descriptions.Item label="本次计费金额（元）">
+        {{ formatAmountInYuan(detailData?.price) }}
       </Descriptions.Item>
       <Descriptions.Item label="操作类型">
         <Tag :color="getChangeDirection().color">
@@ -113,11 +120,11 @@ const [Modal, modalApi] = useVbenModal({
           :value="detailData?.chargeStatus"
         />
       </Descriptions.Item>
-      <Descriptions.Item label="扣费前余额（分）">
-        {{ formatValue(detailData?.balanceBefore) }}
+      <Descriptions.Item label="扣费前余额（元）">
+        {{ formatAmountInYuan(detailData?.balanceBefore) }}
       </Descriptions.Item>
-      <Descriptions.Item label="扣费后余额（分）">
-        {{ formatValue(detailData?.balanceAfter) }}
+      <Descriptions.Item label="扣费后余额（元）">
+        {{ formatAmountInYuan(detailData?.balanceAfter) }}
       </Descriptions.Item>
       <Descriptions.Item :span="2" label="失败原因">
         <div class="whitespace-pre-wrap break-all">

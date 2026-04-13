@@ -3,9 +3,17 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 
 import { CommonStatusEnum, DICT_TYPE } from '@vben/constants';
 import { getDictOptions } from '@vben/hooks';
+import { fenToYuan } from '@vben/utils';
 
 import { z } from '#/adapter/form';
 import { getRangePickerDefaultProps } from '#/utils';
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
+}
 
 /** 新增/修改的表单 */
 export function useFormSchema(): VbenFormSchema[] {
@@ -156,11 +164,12 @@ export function useFormSchema(): VbenFormSchema[] {
     {
       component: 'InputNumber',
       fieldName: 'defaultPrice',
-      label: '默认单价（分）',
+      label: '默认单价（元）',
       componentProps: {
         min: 0,
-        placeholder: '请输入默认单价（分）',
-        precision: 0,
+        placeholder: '请输入默认单价（元）',
+        precision: 2,
+        step: 0.01,
       },
       rules: 'required',
     },
@@ -293,8 +302,9 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
     },
     {
       field: 'defaultPrice',
-      title: '默认单价（分）',
+      title: '默认单价（元）',
       minWidth: 140,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'createTime',

@@ -6,12 +6,20 @@ import { computed } from 'vue';
 
 import { DICT_TYPE } from '@vben/constants';
 import { getDictOptions } from '@vben/hooks';
+import { fenToYuan } from '@vben/utils';
 
 import { getRangePickerDefaultProps } from '#/utils';
 
 interface SelectOption {
   label: string;
   value: number | string;
+}
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
 }
 
 /** 新增/修改的表单 */
@@ -246,8 +254,9 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
     },
     {
       field: 'price',
-      title: '本次计费金额（分）',
+      title: '本次计费金额（元）',
       minWidth: 140,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'isCustomPrice',
@@ -257,13 +266,15 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
     },
     {
       field: 'balanceBefore',
-      title: '扣费前余额（分）',
+      title: '扣费前余额（元）',
       minWidth: 140,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'balanceAfter',
-      title: '扣费后余额（分）',
+      title: '扣费后余额（元）',
       minWidth: 140,
+      formatter: ({ cellValue }) => formatAmountInYuan(cellValue),
     },
     {
       field: 'chargeStatus',

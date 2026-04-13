@@ -7,6 +7,7 @@ import type { ClientApi } from '#/api/platform/client';
 import { computed, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
+import { fenToYuan, yuanToFen } from '@vben/utils';
 
 import { message } from 'ant-design-vue';
 
@@ -130,6 +131,26 @@ async function resetForm() {
   await formApi.resetForm();
 }
 
+function formatFormData(data: ClientApi.Client) {
+  return {
+    ...data,
+    lowBalanceAlert:
+      data.lowBalanceAlert === undefined || data.lowBalanceAlert === null
+        ? data.lowBalanceAlert
+        : Number(fenToYuan(data.lowBalanceAlert)),
+  };
+}
+
+function buildSubmitData(data: ClientApi.Client) {
+  return {
+    ...data,
+    lowBalanceAlert:
+      data.lowBalanceAlert === undefined || data.lowBalanceAlert === null
+        ? data.lowBalanceAlert
+        : yuanToFen(data.lowBalanceAlert),
+  };
+}
+
 async function generateClientId() {
   if (isGeneratingClientId.value) {
     return;
@@ -163,7 +184,7 @@ const [Modal, modalApi] = useVbenModal({
       return;
     }
     modalApi.lock();
-    const data = (await formApi.getValues()) as ClientApi.Client;
+    const data = buildSubmitData((await formApi.getValues()) as ClientApi.Client);
     try {
       await (formData.value?.id ? updateClient(data) : createClient(data));
       await modalApi.close();
@@ -184,7 +205,7 @@ const [Modal, modalApi] = useVbenModal({
     if (!data || !data.id) {
       if (data) {
         await ensureSelectedMemberOption(data.memberUserId);
-        await formApi.setValues(data);
+        await formApi.setValues(formatFormData(data));
       }
       await Promise.all([generateClientId(), generateClientSecret()]);
       return;
@@ -198,7 +219,7 @@ const [Modal, modalApi] = useVbenModal({
     }
     formData.value = data;
     await ensureSelectedMemberOption(data.memberUserId);
-    await formApi.setValues(data);
+    await formApi.setValues(formatFormData(data));
   },
 });
 </script>

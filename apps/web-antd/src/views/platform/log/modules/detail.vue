@@ -4,7 +4,7 @@ import type { LogApi } from '#/api/platform/log';
 import { computed, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
-import { formatDateTime } from '@vben/utils';
+import { fenToYuan, formatDateTime } from '@vben/utils';
 
 import { Descriptions } from 'ant-design-vue';
 
@@ -26,6 +26,13 @@ function formatValue(value?: boolean | number | string | null) {
 
 function formatTime(value?: string) {
   return value ? formatDateTime(value) : '-';
+}
+
+function formatAmountInYuan(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+  return `${fenToYuan(value)} 元`;
 }
 
 const [Modal, modalApi] = useVbenModal({
@@ -98,8 +105,8 @@ const [Modal, modalApi] = useVbenModal({
       <Descriptions.Item label="错误信息">
         {{ formatValue(detailData?.errorMsg) }}
       </Descriptions.Item>
-      <Descriptions.Item label="本次计费金额（分）">
-        {{ formatValue(detailData?.chargePrice) }}
+      <Descriptions.Item label="本次计费金额（元）">
+        {{ formatAmountInYuan(detailData?.chargePrice) }}
       </Descriptions.Item>
       <Descriptions.Item label="扣费状态">
         {{ formatValue(detailData?.chargeStatus) }}
